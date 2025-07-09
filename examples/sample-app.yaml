@@ -1,0 +1,206 @@
+# Sample application demonstrating EKS cluster features
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample-app
+  namespace: default
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: sample-app
+  template:
+    metadata:
+      labels:
+        app: sample-app
+    spec:
+      serviceAccountName: sample-app-sa
+      containers:
+      - name: app
+        image: nginx:1.21
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        volumeMounts:
+        - name: secrets-volume
+          mountPath: "/mnt/secrets"
+          readOnly: true
+        - name: config-volume
+          mountPath: "/mnt/config"
+          readOnly: true
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: database_url
+        - name: FEATURE_FLAG
+          valueFrom:
+            secretKeyRef:
+              name: app-config
+              key: feature_flag
+      volumes:
+      - name: secrets-volume
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: "sample-secret-provider"
+      - name: config-volume
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: "sample-config-provider"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sample-app-sa
+  namespace: default
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/SampleAppRole
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sample-app-service
+  namespace: default
+spec:
+  selector:
+    app: sample-app
+  ports:
+  - port: 80
+    targetPort: 80
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sample-app-ingress
+  namespace: default
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:REGION:ACCOUNT_ID:certificate/CERTIFICATE_ID
+spec:
+  rules:
+  - host: sample-app.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: sample-app-service
+            port:
+              number: 80
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: sample-app-hpa
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: sample-app
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+---
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: sample-secret-provider
+  namespace: default
+spec:
+  provider: aws
+  parameters:
+    objects: |
+      - objectName: "eks-sample-secret"
+        objectType: "secretsmanager"
+        jmesPath:
+          - path: "username"
+            objectAlias: "db_username"
+          - path: "password"
+            objectAlias: "db_password"
+  secretObjects:
+  - secretName: app-secrets
+    type: Opaque
+    data:
+    - objectName: "db_username"
+      key: "username"
+    - objectName: "db_password"
+      key: "password"
+---
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: sample-config-provider
+  namespace: default
+spec:
+  provider: aws
+  parameters:
+    objects: |
+      - objectName: "/eks/app/config/database-url"
+        objectType: "ssmparameter"
+        objectAlias: "database_url"
+      - objectName: "/eks/app/feature-flags/new-ui"
+        objectType: "ssmparameter"
+        objectAlias: "feature_flag"
+  secretObjects:
+  - secretName: app-config
+    type: Opaque
+    data:
+    - objectName: "database_url"
+      key: "database_url"
+    - objectName: "feature_flag"
+      key: "feature_flag"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sample-app-pvc
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: gp3
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: sample-app-pdb
+  namespace: default
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: sample-app

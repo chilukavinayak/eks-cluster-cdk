@@ -1,0 +1,110 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: demo-app-ingress
+  namespace: demo-app
+  labels:
+    app: demo-app
+    component: ingress
+  annotations:
+    # ALB Controller annotations
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/load-balancer-name: demo-app-alb
+    
+    # SSL/TLS Configuration
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:851725444786:certificate/CERTIFICATE_ID
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    
+    # Health Check Configuration
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: '30'
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
+    alb.ingress.kubernetes.io/healthy-threshold-count: '2'
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: '5'
+    
+    # Load Balancer Attributes
+    alb.ingress.kubernetes.io/load-balancer-attributes: |
+      idle_timeout.timeout_seconds=60
+      routing.http2.enabled=true
+      access_logs.s3.enabled=true
+      access_logs.s3.bucket=demo-app-access-logs
+      access_logs.s3.prefix=alb-access-logs
+    
+    # Security
+    alb.ingress.kubernetes.io/security-groups: sg-xxxxxxxxx
+    alb.ingress.kubernetes.io/subnets: subnet-xxxxxxxxx,subnet-yyyyyyyyy,subnet-zzzzzzzzz
+    
+    # Tags
+    alb.ingress.kubernetes.io/tags: |
+      Environment=production
+      Project=eks-demo
+      Component=ingress
+      ManagedBy=kubernetes
+spec:
+  rules:
+  - host: demo-app.example.com
+    http:
+      paths:
+      # API routes go to backend
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: backend-service
+            port:
+              number: 3001
+      # Everything else goes to frontend
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-service
+            port:
+              number: 3000
+  tls:
+  - hosts:
+    - demo-app.example.com
+    secretName: demo-app-tls
+---
+# Optional: Create a second ingress for API-only access
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: demo-app-api-ingress
+  namespace: demo-app
+  labels:
+    app: demo-app
+    component: api-ingress
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/load-balancer-name: demo-app-api-alb
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:851725444786:certificate/CERTIFICATE_ID
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/tags: |
+      Environment=production
+      Project=eks-demo
+      Component=api-ingress
+      ManagedBy=kubernetes
+spec:
+  rules:
+  - host: api.demo-app.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: backend-service
+            port:
+              number: 3001
+  tls:
+  - hosts:
+    - api.demo-app.example.com
+    secretName: demo-app-api-tls

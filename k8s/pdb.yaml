@@ -1,0 +1,29 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: backend-pdb
+  namespace: demo-app
+  labels:
+    app: backend
+    component: pdb
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: backend
+      component: api
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: frontend-pdb
+  namespace: demo-app
+  labels:
+    app: frontend
+    component: pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: frontend
+      component: ui
