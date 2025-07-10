@@ -20,7 +20,7 @@ spec:
         component: api
         tier: backend
     spec:
-      serviceAccountName: backend-service-account
+      serviceAccountName: default
       securityContext:
         runAsNonRoot: true
         runAsUser: 1001
@@ -37,31 +37,6 @@ spec:
           value: "production"
         - name: PORT
           value: "3001"
-        - name: DB_HOST
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: db_host
-        - name: DB_PORT
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: db_port
-        - name: DB_NAME
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: db_name
-        - name: FEATURE_NEW_UI
-          valueFrom:
-            secretKeyRef:
-              name: app-config
-              key: feature_new_ui
-        - name: FEATURE_ANALYTICS
-          valueFrom:
-            secretKeyRef:
-              name: app-config
-              key: feature_analytics
         resources:
           requests:
             memory: "256Mi"
@@ -92,27 +67,9 @@ spec:
             drop:
             - ALL
         volumeMounts:
-        - name: secrets-volume
-          mountPath: "/mnt/secrets"
-          readOnly: true
-        - name: config-volume
-          mountPath: "/mnt/config"
-          readOnly: true
         - name: tmp-volume
           mountPath: "/tmp"
       volumes:
-      - name: secrets-volume
-        csi:
-          driver: secrets-store.csi.k8s.io
-          readOnly: true
-          volumeAttributes:
-            secretProviderClass: "backend-secret-provider"
-      - name: config-volume
-        csi:
-          driver: secrets-store.csi.k8s.io
-          readOnly: true
-          volumeAttributes:
-            secretProviderClass: "backend-config-provider"
       - name: tmp-volume
         emptyDir: {}
       affinity:

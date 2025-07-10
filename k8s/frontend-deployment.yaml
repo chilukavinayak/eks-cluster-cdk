@@ -20,7 +20,7 @@ spec:
         component: ui
         tier: frontend
     spec:
-      serviceAccountName: frontend-service-account
+      serviceAccountName: default
       securityContext:
         runAsNonRoot: true
         runAsUser: 1001
@@ -32,11 +32,6 @@ spec:
         ports:
         - containerPort: 3000
           protocol: TCP
-        env:
-        - name: NODE_ENV
-          value: "production"
-        - name: REACT_APP_API_URL
-          value: "/api"
         resources:
           requests:
             memory: "128Mi"

@@ -30,10 +30,6 @@ spec:
     - podSelector:
         matchLabels:
           app: frontend
-    to:
-    - podSelector:
-        matchLabels:
-          app: backend
     ports:
     - protocol: TCP
       port: 3001
