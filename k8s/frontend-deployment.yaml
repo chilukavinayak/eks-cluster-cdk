@@ -27,7 +27,7 @@ spec:
         fsGroup: 1001
       containers:
       - name: frontend
-        image: 851725444786.dkr.ecr.us-east-1.amazonaws.com/frontend-app:latest
+        image: 276824024738.dkr.ecr.us-east-1.amazonaws.com/frontend-app:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 3000

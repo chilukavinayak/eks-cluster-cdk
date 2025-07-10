@@ -5,6 +5,7 @@ import { Construct } from 'constructs';
 
 export class IamStack extends cdk.Stack {
   public readonly clusterRole: iam.Role;
+  public readonly nodeGroupRole: iam.Role;
   public readonly albControllerRole: iam.Role;
   public readonly efsDriverRole: iam.Role;
   public readonly ebsDriverRole: iam.Role;
@@ -19,6 +20,16 @@ export class IamStack extends cdk.Stack {
       roleName: 'EksClusterRole',
       managedPolicies: [
         iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonEKSClusterPolicy')
+      ]
+    });
+
+    // EKS Node Group Role
+    this.nodeGroupRole = new iam.Role(this, 'NodeGroupRole', {
+      assumedBy: new iam.ServicePrincipal('ec2.amazonaws.com'),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonEKSWorkerNodePolicy'),
+        iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonEKS_CNI_Policy'),
+        iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonEC2ContainerRegistryReadOnly')
       ]
     });
 

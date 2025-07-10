@@ -1,27 +1,42 @@
 # Agent Configuration
 
-This file contains configuration and commands for the EKS cluster deployment project.
+This file contains configuration and commands for the production-grade EKS cluster deployment project.
 
 ## Quick Start Commands
 
-### Build and Deploy Everything
+### Unified Deployment Commands
 ```bash
-./scripts/build-and-deploy.sh
+# Deploy core infrastructure only
+./scripts/deploy.sh dev core
+
+# Deploy all addons (requires core)
+./scripts/deploy.sh dev addons all
+
+# Deploy everything (core + addons)
+./scripts/deploy.sh dev full
+
+# Deploy to different environments
+./scripts/deploy.sh staging full
+./scripts/deploy.sh prod core
+
+# Deploy specific addon types
+./scripts/deploy.sh dev addons essential
+./scripts/deploy.sh dev addons monitoring
 ```
 
-### Deploy Infrastructure Only
+### Unified Destroy Commands
 ```bash
-./scripts/build-and-deploy.sh infrastructure
-```
+# Destroy only addons (keep core)
+./scripts/destroy.sh dev addons
 
-### Deploy Applications Only
-```bash
-./scripts/build-and-deploy.sh applications
-```
+# Destroy only core infrastructure
+./scripts/destroy.sh dev core
 
-### Build and Push Images Only
-```bash
-./scripts/build-and-deploy.sh images
+# Destroy everything
+./scripts/destroy.sh dev full
+
+# Destroy production (requires confirmation)
+./scripts/destroy.sh prod full
 ```
 
 ## Development Commands
@@ -64,13 +79,55 @@ docker build -t frontend-app .
 ```
 eks-cluster-cdk/
 ├── src/                     # CDK TypeScript source
-│   └── stacks/             # CDK stacks
+│   ├── stacks/             # CDK stacks
+│   │   ├── eks-cluster-stack.ts      # Production EKS cluster
+│   │   ├── nodegroups-stack.ts       # 4 production node groups
+│   │   ├── addons-stack.ts          # ALB, CSI, monitoring
+│   │   ├── vpc-stack.ts             # VPC with private subnets
+│   │   └── iam-stack.ts             # IAM roles and policies
+│   └── config/
+│       └── environments.ts          # Multi-environment config
 ├── applications/           # Application source code
 │   ├── backend/           # Node.js Express API
 │   └── frontend/          # React frontend
 ├── k8s/                   # Kubernetes manifests
-├── scripts/               # Deployment scripts
+├── scripts/               # Environment deployment scripts
+│   ├── deploy-env.sh      # Deploy to any environment
+│   └── destroy-env.sh     # Destroy any environment
 └── examples/              # Usage examples
+```
+
+## Production-Grade Node Groups
+
+The NodeGroupsStack creates 4 specialized node groups for production workloads:
+
+1. **System Node Group** (`system-nodes`)
+   - Instance Types: m6i.large, m6i.xlarge, m5.large, m5.xlarge
+   - Capacity: 2-6 nodes (desired: 3)
+   - Disk: 100GB
+   - Taint: `system-workload=true:NoSchedule`
+   - Purpose: Critical system workloads
+
+2. **Application Node Group** (`application-nodes`)
+   - Instance Types: m6i.large-2xlarge, c6i.large-xlarge
+   - Capacity: 3-20 nodes (desired: 5)
+   - Disk: 100GB
+   - No taints (general workloads)
+   - Purpose: Main application workloads
+
+3. **Spot Node Group** (`spot-nodes`)
+   - Instance Types: Mixed m6i, m5, c6i, c5 instances
+   - Capacity: 0-50 nodes (desired: 2)
+   - Spot instances for cost optimization
+   - Taint: `spot-instance=true:NoSchedule`
+   - Purpose: Batch processing, non-critical workloads
+
+4. **Memory Node Group** (`memory-nodes`)
+   - Instance Types: r6i.large-2xlarge, r5.large-xlarge
+   - Capacity: 0-10 nodes (desired: 1)
+   - Memory-optimized instances
+   - Taint: `memory-optimized=true:NoSchedule`
+   - Purpose: Memory-intensive workloads, databases
 ```
 
 ## Environment Variables

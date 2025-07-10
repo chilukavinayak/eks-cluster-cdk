@@ -1,234 +1,231 @@
 #!/bin/bash
 
-# Production-grade EKS destruction script
+# Unified destruction script for EKS cluster
+# Usage: ./scripts/destroy.sh <environment> [destroy-type]
+# 
+# Examples:
+#   ./scripts/destroy.sh dev addons        # Destroy only addons (keep core)
+#   ./scripts/destroy.sh dev core          # Destroy only core infrastructure
+#   ./scripts/destroy.sh dev full          # Destroy everything (addons + core)
+#   ./scripts/destroy.sh prod full         # Destroy production environment
 
-set -euo pipefail
+set -e
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+# Default values
+ENVIRONMENT=${1:-dev}
+DESTROY_TYPE=${2:-full}
 
-# Configuration
-AWS_REGION=${AWS_REGION:-us-east-1}
-CLUSTER_NAME="production-eks-cluster"
+VALID_ENVIRONMENTS=("dev" "staging" "prod")
+VALID_DESTROY_TYPES=("addons" "core" "full")
 
-# Functions
-log() {
-    echo -e "${GREEN}[INFO]${NC} $1"
+# Function to display usage
+show_usage() {
+    echo "Usage: $0 <environment> [destroy-type]"
+    echo ""
+    echo "Environment (required): ${VALID_ENVIRONMENTS[*]}"
+    echo "Destroy types: ${VALID_DESTROY_TYPES[*]}"
+    echo ""
+    echo "Examples:"
+    echo "  $0 dev addons      # Destroy only addons (keep core infrastructure)"
+    echo "  $0 dev core        # Destroy only core infrastructure"
+    echo "  $0 dev full        # Destroy everything (default)"
+    echo "  $0 prod full       # Destroy production environment"
+    echo ""
+    echo "Destroy Types:"
+    echo "  addons - Remove only Kubernetes addons (keep core infrastructure)"
+    echo "  core   - Remove only core infrastructure (VPC, IAM, EKS, NodeGroups)"
+    echo "  full   - Remove everything (addons + core infrastructure)"
+    echo ""
+    echo "⚠️  WARNING: Destruction is irreversible!"
 }
 
-warn() {
-    echo -e "${YELLOW}[WARN]${NC} $1"
-}
+# Check for help flag
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+    show_usage
+    exit 0
+fi
 
-error() {
-    echo -e "${RED}[ERROR]${NC} $1"
+# Validate environment
+if [[ ! " ${VALID_ENVIRONMENTS[@]} " =~ " ${ENVIRONMENT} " ]]; then
+    echo "❌ Error: Invalid environment '${ENVIRONMENT}'"
+    echo "Valid environments: ${VALID_ENVIRONMENTS[*]}"
+    show_usage
     exit 1
-}
+fi
 
-confirm_destruction() {
-    warn "This will destroy all EKS cluster resources including:"
-    echo "  - EKS cluster and node groups"
-    echo "  - VPC and networking components"
-    echo "  - IAM roles and policies"
-    echo "  - CloudWatch log groups"
-    echo "  - Load balancers and associated resources"
-    echo ""
-    warn "This action cannot be undone!"
-    echo ""
-    read -p "Are you sure you want to continue? (type 'yes' to confirm): " confirmation
-    
-    if [[ "$confirmation" != "yes" ]]; then
-        log "Destruction cancelled."
-        exit 0
-    fi
-}
+# Validate destroy type
+if [[ ! " ${VALID_DESTROY_TYPES[@]} " =~ " ${DESTROY_TYPE} " ]]; then
+    echo "❌ Error: Invalid destroy type '${DESTROY_TYPE}'"
+    echo "Valid destroy types: ${VALID_DESTROY_TYPES[*]}"
+    show_usage
+    exit 1
+fi
 
-cleanup_load_balancers() {
-    log "Cleaning up load balancers created by ALB controller..."
-    
-    # Get all load balancers tagged with the cluster
-    aws elbv2 describe-load-balancers --region $AWS_REGION --query "LoadBalancers[?contains(LoadBalancerName, 'k8s-')]" --output table || true
-    
-    # Note: Manual cleanup may be required for ALB/NLB created by Kubernetes services
-    warn "Please ensure all ALB/NLB resources created by Kubernetes services are deleted manually if needed."
-}
-
-cleanup_security_groups() {
-    log "Cleaning up security groups..."
-    
-    # List security groups that may be created by EKS
-    aws ec2 describe-security-groups --region $AWS_REGION --filters "Name=group-name,Values=k8s-*" --query "SecurityGroups[*].GroupId" --output table || true
-    
-    warn "Some security groups may need manual deletion if they have dependencies."
-}
-
-destroy_stacks() {
-    log "Destroying CDK stacks..."
-    
-    # Build the project first
-    log "Building TypeScript project..."
-    npm run build
-    
-    # Destroy stacks in reverse order
-    log "Destroying add-ons stack..."
-    cdk destroy EksAddonsStack --force || warn "Failed to destroy add-ons stack, continuing..."
-    
-    log "Destroying EKS cluster stack..."
-    cdk destroy EksClusterStack --force || warn "Failed to destroy cluster stack, continuing..."
-    
-    log "Destroying IAM stack..."
-    cdk destroy EksIamStack --force || warn "Failed to destroy IAM stack, continuing..."
-    
-    log "Destroying VPC stack..."
-    cdk destroy EksVpcStack --force || warn "Failed to destroy VPC stack, continuing..."
-    
-    log "All stacks destruction completed!"
-}
-
-cleanup_cloudwatch_logs() {
-    log "Cleaning up CloudWatch log groups..."
-    
-    # Delete EKS cluster log groups
-    aws logs delete-log-group --log-group-name "/aws/eks/cluster/logs" --region $AWS_REGION || true
-    aws logs delete-log-group --log-group-name "/aws/containerinsights/$CLUSTER_NAME/application" --region $AWS_REGION || true
-    aws logs delete-log-group --log-group-name "/aws/containerinsights/$CLUSTER_NAME/performance" --region $AWS_REGION || true
-    
-    # List remaining log groups
-    log "Remaining CloudWatch log groups:"
-    aws logs describe-log-groups --log-group-name-prefix "/aws/eks" --region $AWS_REGION --query "logGroups[*].logGroupName" --output table || true
-}
-
-cleanup_ssm_parameters() {
-    log "Cleaning up SSM parameters..."
-    
-    # Delete SSM parameters created by the stack
-    aws ssm delete-parameters --names \
-        "/eks/vpc-id" \
-        "/eks/private-subnet-ids" \
-        "/eks/public-subnet-ids" \
-        "/eks/cluster-role-arn" \
-        "/eks/node-group-role-arn" \
-        "/eks/alb-controller-role-arn" \
-        "/eks/cluster-name" \
-        "/eks/cluster-endpoint" \
-        "/eks/oidc-issuer-url" \
-        "/eks/cluster-security-group-id" \
-        "/eks/sample-secret-arn" \
-        "/eks/app/config/database-url" \
-        "/eks/app/feature-flags/new-ui" \
-        --region $AWS_REGION || true
-    
-    log "SSM parameters cleanup completed!"
-}
-
-cleanup_secrets() {
-    log "Cleaning up AWS Secrets Manager secrets..."
-    
-    # Delete secrets created by the stack
-    aws secretsmanager delete-secret --secret-id "eks-sample-secret" --force-delete-without-recovery --region $AWS_REGION || true
-    
-    log "Secrets cleanup completed!"
-}
-
-remove_kubectl_config() {
-    log "Removing kubectl configuration..."
-    
-    # Remove cluster from kubeconfig
-    kubectl config delete-cluster "arn:aws:eks:$AWS_REGION:$(aws sts get-caller-identity --query Account --output text):cluster/$CLUSTER_NAME" || true
-    kubectl config delete-context "arn:aws:eks:$AWS_REGION:$(aws sts get-caller-identity --query Account --output text):cluster/$CLUSTER_NAME" || true
-    kubectl config unset "users.arn:aws:eks:$AWS_REGION:$(aws sts get-caller-identity --query Account --output text):cluster/$CLUSTER_NAME" || true
-    
-    log "kubectl configuration cleanup completed!"
-}
-
-verify_cleanup() {
-    log "Verifying cleanup..."
-    
-    # Check if cluster still exists
-    if aws eks describe-cluster --name $CLUSTER_NAME --region $AWS_REGION &> /dev/null; then
-        warn "EKS cluster still exists. Manual cleanup may be required."
-    else
-        log "EKS cluster successfully deleted."
-    fi
-    
-    # Check for remaining resources
-    log "Checking for remaining resources..."
-    
-    # Check VPC
-    local vpc_id=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=EksVpcStack*" --query "Vpcs[0].VpcId" --output text --region $AWS_REGION 2>/dev/null || echo "None")
-    if [[ "$vpc_id" != "None" && "$vpc_id" != "null" ]]; then
-        warn "VPC still exists: $vpc_id"
-    fi
-    
-    # Check security groups
-    local sg_count=$(aws ec2 describe-security-groups --filters "Name=group-name,Values=*eks*" --query "length(SecurityGroups)" --output text --region $AWS_REGION 2>/dev/null || echo "0")
-    if [[ "$sg_count" != "0" ]]; then
-        warn "$sg_count EKS-related security groups still exist"
-    fi
-    
-    log "Cleanup verification completed!"
-}
-
-show_manual_cleanup_steps() {
-    warn "If you encounter issues, you may need to manually clean up:"
-    echo ""
-    echo "1. Delete any remaining ALB/NLB resources:"
-    echo "   aws elbv2 describe-load-balancers --region $AWS_REGION"
-    echo ""
-    echo "2. Delete any remaining security groups:"
-    echo "   aws ec2 describe-security-groups --filters \"Name=group-name,Values=k8s-*\" --region $AWS_REGION"
-    echo ""
-    echo "3. Delete any remaining CloudWatch log groups:"
-    echo "   aws logs describe-log-groups --log-group-name-prefix \"/aws/eks\" --region $AWS_REGION"
-    echo ""
-    echo "4. Check CloudFormation stacks:"
-    echo "   aws cloudformation list-stacks --region $AWS_REGION"
-    echo ""
-    echo "5. If CDK stacks are stuck, try:"
-    echo "   cdk destroy --force"
-    echo ""
-}
-
-main() {
-    log "Starting EKS cluster destruction..."
-    
-    confirm_destruction
-    cleanup_load_balancers
-    cleanup_security_groups
-    destroy_stacks
-    cleanup_cloudwatch_logs
-    cleanup_ssm_parameters
-    cleanup_secrets
-    remove_kubectl_config
-    verify_cleanup
-    show_manual_cleanup_steps
-    
-    log "Destruction script completed!"
-    log "Please check AWS console to ensure all resources are deleted."
-}
-
-# Handle script arguments
-case "${1:-destroy}" in
-    destroy)
-        main
+# Set environment variables based on the environment
+case ${ENVIRONMENT} in
+    dev)
+        export DEV_AWS_ACCOUNT_ID=${DEV_AWS_ACCOUNT_ID:-"276824024738"}
+        export DEV_AWS_REGION=${DEV_AWS_REGION:-"us-east-1"}
         ;;
-    verify)
-        verify_cleanup
+    staging)
+        export STAGING_AWS_ACCOUNT_ID=${STAGING_AWS_ACCOUNT_ID:-"123456789013"}
+        export STAGING_AWS_REGION=${STAGING_AWS_REGION:-"us-east-1"}
         ;;
-    cleanup-logs)
-        cleanup_cloudwatch_logs
-        ;;
-    cleanup-ssm)
-        cleanup_ssm_parameters
-        ;;
-    cleanup-secrets)
-        cleanup_secrets
-        ;;
-    *)
-        echo "Usage: $0 {destroy|verify|cleanup-logs|cleanup-ssm|cleanup-secrets}"
-        exit 1
+    prod)
+        export PROD_AWS_ACCOUNT_ID=${PROD_AWS_ACCOUNT_ID:-"123456789014"}
+        export PROD_AWS_REGION=${PROD_AWS_REGION:-"us-east-1"}
         ;;
 esac
+
+export ENVIRONMENT=${ENVIRONMENT}
+
+# Function to check prerequisites
+check_prerequisites() {
+    echo "🔍 Checking prerequisites..."
+    
+    # Check if required commands are available
+    local missing_commands=()
+    
+    if ! command -v aws >/dev/null 2>&1; then
+        missing_commands+=("aws")
+    fi
+    
+    if ! command -v npm >/dev/null 2>&1; then
+        missing_commands+=("npm")
+    fi
+    
+    if [ ${#missing_commands[@]} -ne 0 ]; then
+        echo "❌ Error: Missing required commands: ${missing_commands[*]}"
+        echo "Please install the missing commands and try again."
+        exit 1
+    fi
+    
+    # Check AWS CLI configuration
+    if ! aws sts get-caller-identity >/dev/null 2>&1; then
+        echo "❌ Error: AWS CLI not configured or credentials invalid"
+        echo "Please run 'aws configure' or set AWS credentials"
+        exit 1
+    fi
+    
+    # Check if package.json exists
+    if [[ ! -f "package.json" ]]; then
+        echo "❌ Error: package.json not found"
+        echo "Please run this script from the project root directory"
+        exit 1
+    fi
+    
+    echo "✅ Prerequisites check passed"
+}
+
+echo "🚨 WARNING: This will destroy resources in the ${ENVIRONMENT} environment!"
+echo "📋 Destroy type: ${DESTROY_TYPE}"
+
+# Check prerequisites before proceeding
+check_prerequisites
+
+# Enhanced warning for production
+if [[ "${ENVIRONMENT}" == "prod" ]]; then
+    echo "⚠️  🔥 PRODUCTION ENVIRONMENT DETECTED! 🔥"
+    echo "This will destroy production resources that may be serving live traffic!"
+    echo "Please type 'DESTROY-PRODUCTION' to confirm:"
+    read -r confirmation
+    if [[ "$confirmation" != "DESTROY-PRODUCTION" ]]; then
+        echo "❌ Production destruction cancelled."
+        exit 1
+    fi
+else
+    read -p "Are you sure you want to continue? (yes/no): " -r
+    if [[ ! $REPLY =~ ^[Yy]es$ ]]; then
+        echo "❌ Destruction cancelled."
+        exit 1
+    fi
+fi
+
+echo "🗑️  Destroying ${ENVIRONMENT} environment (${DESTROY_TYPE})..."
+
+# Build the project
+echo "📦 Building TypeScript..."
+if ! npm run build; then
+    echo "❌ Error: TypeScript build failed"
+    exit 1
+fi
+
+# Function to destroy addons
+destroy_addons() {
+    echo "🔧 Destroying addons..."
+    
+    echo "🔒 Destroying security addons..."
+    npx cdk destroy platform-eks-cluster-${ENVIRONMENT}-addons-security-stack --context environment=${ENVIRONMENT} --force || true
+    
+    echo "📊 Destroying monitoring addons..."
+    npx cdk destroy platform-eks-cluster-${ENVIRONMENT}-addons-monitoring-stack --context environment=${ENVIRONMENT} --force || true
+    
+    echo "🌐 Destroying networking addons..."
+    npx cdk destroy platform-eks-cluster-${ENVIRONMENT}-addons-networking-stack --context environment=${ENVIRONMENT} --force || true
+    
+    echo "💾 Destroying storage addons..."
+    npx cdk destroy platform-eks-cluster-${ENVIRONMENT}-addons-storage-stack --context environment=${ENVIRONMENT} --force || true
+    
+    echo "🔧 Destroying core addons..."
+    npx cdk destroy platform-eks-cluster-${ENVIRONMENT}-addons-core-stack --context environment=${ENVIRONMENT} --force || true
+    
+    echo "✅ Addons destroyed!"
+}
+
+# Function to destroy core infrastructure
+destroy_core() {
+    echo "🔧 Destroying core infrastructure..."
+    
+    echo "🔑 Destroying OIDC trust..."
+    npx cdk destroy platform-eks-cluster-${ENVIRONMENT}-oidc-trust-stack --context environment=${ENVIRONMENT} --force || true
+    
+    echo "🖥️ Destroying node groups..."
+    npx cdk destroy platform-eks-cluster-${ENVIRONMENT}-node-groups-stack --context environment=${ENVIRONMENT} --force || true
+    
+    echo "☸️ Destroying EKS cluster..."
+    npx cdk destroy platform-eks-cluster-${ENVIRONMENT}-eks-stack --context environment=${ENVIRONMENT} --force || true
+    
+    echo "🔐 Destroying IAM stack..."
+    npx cdk destroy platform-eks-cluster-${ENVIRONMENT}-iam-stack --context environment=${ENVIRONMENT} --force || true
+    
+    echo "🌐 Destroying VPC stack..."
+    npx cdk destroy platform-eks-cluster-${ENVIRONMENT}-vpc-stack --context environment=${ENVIRONMENT} --force || true
+    
+    echo "✅ Core infrastructure destroyed!"
+}
+
+# Main destruction logic
+case ${DESTROY_TYPE} in
+    "addons")
+        destroy_addons
+        echo ""
+        echo "🎯 Addons destroyed. Core infrastructure remains."
+        echo "   - To destroy core: ./scripts/destroy.sh ${ENVIRONMENT} core"
+        echo "   - To redeploy addons: ./scripts/deploy.sh ${ENVIRONMENT} addons all"
+        ;;
+    "core")
+        destroy_core
+        echo ""
+        echo "🎯 Core infrastructure destroyed."
+        echo "   - To redeploy: ./scripts/deploy.sh ${ENVIRONMENT} core"
+        ;;
+    "full")
+        destroy_addons
+        echo ""
+        echo "🔄 Proceeding with core infrastructure destruction..."
+        destroy_core
+        echo ""
+        echo "🎯 Complete environment destroyed!"
+        echo "   - To redeploy: ./scripts/deploy.sh ${ENVIRONMENT} full"
+        ;;
+esac
+
+echo ""
+echo "✅ Environment ${ENVIRONMENT} destruction completed!"
+echo "📋 Destroyed: ${DESTROY_TYPE}"
+
+# Show final status
+echo ""
+echo "🔍 Final AWS CloudFormation stacks status:"
+region=$(aws configure get region 2>/dev/null || echo "us-east-1")
+aws cloudformation describe-stacks --region ${region} --query "Stacks[?contains(StackName, 'platform-eks-cluster-${ENVIRONMENT}')].{Name:StackName,Status:StackStatus}" --output table 2>/dev/null || echo "No remaining stacks found."

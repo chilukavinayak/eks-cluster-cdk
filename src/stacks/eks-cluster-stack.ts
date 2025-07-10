@@ -11,6 +11,8 @@ import { KubectlV28Layer } from '@aws-cdk/lambda-layer-kubectl-v28';
 export interface EksClusterStackProps extends cdk.StackProps {
   vpc: ec2.Vpc;
   clusterRole: iam.Role;
+  projectName: string;
+  environmentName: string;
 }
 
 export class EksClusterStack extends cdk.Stack {
@@ -65,32 +67,54 @@ export class EksClusterStack extends cdk.Stack {
       'Allow HTTPS from anywhere'
     );
 
-    // Ultra-minimal EKS Cluster - disable ALL automatic resource creation
+    // Production-Grade EKS Cluster Configuration
+    const clusterName = `${props.projectName}-${props.environmentName}-cluster`;
     this.cluster = new eks.Cluster(this, 'EksCluster', {
-      clusterName: 'production-eks-cluster',
+      clusterName: clusterName,
       version: eks.KubernetesVersion.V1_28,
       vpc: props.vpc,
       vpcSubnets: [{ subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }],
       role: props.clusterRole,
       securityGroup: clusterSecurityGroup,
-      endpointAccess: eks.EndpointAccess.PUBLIC_AND_PRIVATE.onlyFrom(
-        '0.0.0.0/0'  // Restrict this to your IP ranges in production
-      ),
-      // Disable ALL logging to avoid automatic resource creation
-      // clusterLogging: [],
+      
+      // Production endpoint access - restrict to private for security
+      endpointAccess: eks.EndpointAccess.PUBLIC_AND_PRIVATE,
+      
+      // Production logging - enable all log types for monitoring
+      clusterLogging: [
+        eks.ClusterLoggingTypes.API,
+        eks.ClusterLoggingTypes.AUDIT,
+        eks.ClusterLoggingTypes.AUTHENTICATOR,
+        eks.ClusterLoggingTypes.CONTROLLER_MANAGER,
+        eks.ClusterLoggingTypes.SCHEDULER
+      ],
+      
+      // Encryption for production
       secretsEncryptionKey: clusterKmsKey,
+      
+      // kubectl layer for management
       kubectlLayer: new KubectlV28Layer(this, 'KubectlLayer'),
-      outputClusterName: false,  // Disable to avoid kubectl resources
-      outputConfigCommand: false,  // Disable to avoid kubectl resources
-      outputMastersRoleArn: false,  // Disable to avoid kubectl resources
-      defaultCapacity: 0,  // Disable default capacity
-      defaultCapacityType: eks.DefaultCapacityType.NODEGROUP,
-      prune: false,  // Disable automatic resource pruning
-      authenticationMode: eks.AuthenticationMode.API,  // Use API mode to avoid AwsAuth ConfigMap
-      coreDnsComputeType: eks.CoreDnsComputeType.FARGATE,  // Use Fargate to avoid node dependencies
+      
+      // Disable automatic outputs to avoid conflicts
+      outputClusterName: false,
+      outputConfigCommand: false,
+      outputMastersRoleArn: false,
+      
+      // No default capacity - managed by NodeGroupsStack
+      defaultCapacity: 0,
+      defaultCapacityType: eks.DefaultCapacityType.EC2,
+      
+      // Production settings
+      prune: false,
+      authenticationMode: eks.AuthenticationMode.API,
+      coreDnsComputeType: eks.CoreDnsComputeType.EC2,
+      
+      // Production tags
       tags: {
-        Environment: 'production',
-        Project: 'eks-cluster'
+        Environment: props.environmentName,
+        Project: props.projectName,
+        ClusterType: 'production',
+        ManagedBy: 'CDK'
       }
     });
 
@@ -115,8 +139,8 @@ export class EksClusterStack extends cdk.Stack {
       'Allow cluster to communicate with nodes'
     );
 
-    // Note: Node groups commented out to avoid rate limiting during initial cluster creation
-    // Uncomment and deploy after cluster is successfully created
+    // Note: Node groups are managed by the separate NodeGroupsStack
+    // This avoids conflicts and allows for better separation of concerns
     /*
     // Primary Node Group (General purpose) - Start with just one node group
     const primaryNodeGroup = this.cluster.addNodegroupCapacity('PrimaryNodeGroup', {
@@ -131,9 +155,9 @@ export class EksClusterStack extends cdk.Stack {
 
       subnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       tags: {
-        'kubernetes.io/cluster/production-eks-cluster': 'owned',
+        [`kubernetes.io/cluster/${clusterName}`]: 'owned',
         'k8s.io/cluster-autoscaler/enabled': 'true',
-        'k8s.io/cluster-autoscaler/production-eks-cluster': 'owned'
+        [`k8s.io/cluster-autoscaler/${clusterName}`]: 'owned'
       },
       labels: {
         'node-type': 'primary',
@@ -142,10 +166,9 @@ export class EksClusterStack extends cdk.Stack {
       taints: []
     });
     */
-
-    // Additional node groups commented out to avoid rate limiting during initial deployment
-    // Uncomment and redeploy after initial cluster creation is complete
     
+
+    // Additional node groups commented out - managed by NodeGroupsStack instead
     /*
     // Spot Node Group (Cost-optimized)
     const spotNodeGroup = this.cluster.addNodegroupCapacity('SpotNodeGroup', {
@@ -165,9 +188,9 @@ export class EksClusterStack extends cdk.Stack {
 
       subnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       tags: {
-        'kubernetes.io/cluster/production-eks-cluster': 'owned',
+        [`kubernetes.io/cluster/${clusterName}`]: 'owned',
         'k8s.io/cluster-autoscaler/enabled': 'true',
-        'k8s.io/cluster-autoscaler/production-eks-cluster': 'owned'
+        [`k8s.io/cluster-autoscaler/${clusterName}`]: 'owned'
       },
       labels: {
         'node-type': 'spot',
@@ -184,20 +207,20 @@ export class EksClusterStack extends cdk.Stack {
 
     // Add EBS CSI Driver
     this.cluster.addNodegroupCapacity('EbsCsiNodeGroup', {
-      nodegroupName: 'ebs-csi-nodes',
-      instanceTypes: [new ec2.InstanceType('m5.large')],
-      minSize: 1,
-      maxSize: 3,
-      desiredSize: 1,
-      diskSize: 50,
-      amiType: eks.NodegroupAmiType.AL2_X86_64,
-      capacityType: eks.CapacityType.ON_DEMAND,
+    nodegroupName: 'ebs-csi-nodes',
+    instanceTypes: [new ec2.InstanceType('m5.large')],
+    minSize: 1,
+    maxSize: 3,
+    desiredSize: 1,
+    diskSize: 50,
+    amiType: eks.NodegroupAmiType.AL2_X86_64,
+    capacityType: eks.CapacityType.ON_DEMAND,
 
-      subnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
-      labels: {
-        'node-type': 'ebs-csi',
-        'instance-type': 'storage'
-      }
+    subnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+    labels: {
+    'node-type': 'ebs-csi',
+    'instance-type': 'storage'
+    }
     });
     */
 
@@ -259,7 +282,7 @@ export class EksClusterStack extends cdk.Stack {
   }
 
   // Commented out due to token resolution issues - moved to separate stack
-  /*private updateServiceAccountRoles(oidcProvider: iam.IOpenIdConnectProvider) {
+  private updateServiceAccountRoles(oidcProvider: iam.IOpenIdConnectProvider) {
     // Import existing roles and update their trust policies
     const albControllerRole = iam.Role.fromRoleName(this, 'ImportedAlbControllerRole', 'AlbControllerRole');
     const ebsDriverRole = iam.Role.fromRoleName(this, 'ImportedEbsDriverRole', 'EbsDriverRole');
@@ -321,5 +344,5 @@ export class EksClusterStack extends cdk.Stack {
         actions: ['sts:AssumeRoleWithWebIdentity']
       })
     );
-  }*/
+  }
 }

@@ -8,10 +8,14 @@
     "watch": "tsc -w",
     "test": "jest",
     "cdk": "cdk",
-    "deploy": "cdk deploy --all",
-    "destroy": "cdk destroy --all",
     "diff": "cdk diff",
-    "synth": "cdk synth"
+    "synth": "cdk synth",
+    "deploy:dev": "./scripts/deploy-env.sh dev",
+    "deploy:staging": "./scripts/deploy-env.sh staging",
+    "deploy:prod": "./scripts/deploy-env.sh prod",
+    "destroy:dev": "./scripts/destroy-env.sh dev",
+    "destroy:staging": "./scripts/destroy-env.sh staging",
+    "destroy:prod": "./scripts/destroy-env.sh prod"
   },
   "devDependencies": {
     "@types/jest": "^29.5.5",

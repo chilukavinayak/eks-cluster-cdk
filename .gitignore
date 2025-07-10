@@ -1,5 +1,6 @@
 # CDK
 cdk.out/
+cdk.context.json
 *.d.ts
 *.js
 *.js.map

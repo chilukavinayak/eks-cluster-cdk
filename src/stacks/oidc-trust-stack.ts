@@ -21,15 +21,14 @@ export class OidcTrustStack extends cdk.Stack {
   private createServiceAccountRoles(oidcProvider: iam.IOpenIdConnectProvider) {
     // AWS Load Balancer Controller Role
     const albControllerRole = new iam.Role(this, 'AlbControllerRole', {
-      assumedBy: new iam.FederatedPrincipal(
+      assumedBy: new iam.WebIdentityPrincipal(
         oidcProvider.openIdConnectProviderArn,
         {
           StringEquals: {
             [`${oidcProvider.openIdConnectProviderIssuer}:sub`]: 'system:serviceaccount:kube-system:aws-load-balancer-controller',
             [`${oidcProvider.openIdConnectProviderIssuer}:aud`]: 'sts.amazonaws.com'
           }
-        },
-        'sts:AssumeRoleWithWebIdentity'
+        }
       ),
       roleName: 'EksAlbControllerRole',
       managedPolicies: [
@@ -74,15 +73,14 @@ export class OidcTrustStack extends cdk.Stack {
 
     // EBS CSI Driver Role
     const ebsDriverRole = new iam.Role(this, 'EbsDriverRole', {
-      assumedBy: new iam.FederatedPrincipal(
+      assumedBy: new iam.WebIdentityPrincipal(
         oidcProvider.openIdConnectProviderArn,
         {
           StringEquals: {
             [`${oidcProvider.openIdConnectProviderIssuer}:sub`]: 'system:serviceaccount:kube-system:ebs-csi-controller-sa',
             [`${oidcProvider.openIdConnectProviderIssuer}:aud`]: 'sts.amazonaws.com'
           }
-        },
-        'sts:AssumeRoleWithWebIdentity'
+        }
       ),
       roleName: 'EksEbsDriverRole',
       managedPolicies: [
@@ -92,15 +90,14 @@ export class OidcTrustStack extends cdk.Stack {
 
     // EFS CSI Driver Role
     const efsDriverRole = new iam.Role(this, 'EfsDriverRole', {
-      assumedBy: new iam.FederatedPrincipal(
+      assumedBy: new iam.WebIdentityPrincipal(
         oidcProvider.openIdConnectProviderArn,
         {
           StringEquals: {
             [`${oidcProvider.openIdConnectProviderIssuer}:sub`]: 'system:serviceaccount:kube-system:efs-csi-controller-sa',
             [`${oidcProvider.openIdConnectProviderIssuer}:aud`]: 'sts.amazonaws.com'
           }
-        },
-        'sts:AssumeRoleWithWebIdentity'
+        }
       ),
       roleName: 'EksEfsDriverRole',
       managedPolicies: [
@@ -110,15 +107,14 @@ export class OidcTrustStack extends cdk.Stack {
 
     // Cluster Autoscaler Role
     const clusterAutoScalerRole = new iam.Role(this, 'ClusterAutoScalerRole', {
-      assumedBy: new iam.FederatedPrincipal(
+      assumedBy: new iam.WebIdentityPrincipal(
         oidcProvider.openIdConnectProviderArn,
         {
           StringEquals: {
             [`${oidcProvider.openIdConnectProviderIssuer}:sub`]: 'system:serviceaccount:kube-system:cluster-autoscaler',
             [`${oidcProvider.openIdConnectProviderIssuer}:aud`]: 'sts.amazonaws.com'
           }
-        },
-        'sts:AssumeRoleWithWebIdentity'
+        }
       ),
       roleName: 'EksClusterAutoScalerRole'
     });
@@ -145,15 +141,14 @@ export class OidcTrustStack extends cdk.Stack {
 
     // Backend Application Service Role
     const backendServiceRole = new iam.Role(this, 'BackendServiceRole', {
-      assumedBy: new iam.FederatedPrincipal(
+      assumedBy: new iam.WebIdentityPrincipal(
         oidcProvider.openIdConnectProviderArn,
         {
           StringEquals: {
             [`${oidcProvider.openIdConnectProviderIssuer}:sub`]: 'system:serviceaccount:demo-app:backend-service-account',
             [`${oidcProvider.openIdConnectProviderIssuer}:aud`]: 'sts.amazonaws.com'
           }
-        },
-        'sts:AssumeRoleWithWebIdentity'
+        }
       ),
       roleName: 'EksBackendServiceRole'
     });
@@ -194,15 +189,14 @@ export class OidcTrustStack extends cdk.Stack {
 
     // Frontend Application Service Role
     const frontendServiceRole = new iam.Role(this, 'FrontendServiceRole', {
-      assumedBy: new iam.FederatedPrincipal(
+      assumedBy: new iam.WebIdentityPrincipal(
         oidcProvider.openIdConnectProviderArn,
         {
           StringEquals: {
             [`${oidcProvider.openIdConnectProviderIssuer}:sub`]: 'system:serviceaccount:demo-app:frontend-service-account',
             [`${oidcProvider.openIdConnectProviderIssuer}:aud`]: 'sts.amazonaws.com'
           }
-        },
-        'sts:AssumeRoleWithWebIdentity'
+        }
       ),
       roleName: 'EksFrontendServiceRole'
     });
