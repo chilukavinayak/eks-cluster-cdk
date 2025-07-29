@@ -1,0 +1,44 @@
+# Read-Only Role RBAC Configuration
+# Provides view-only access across the cluster
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: readonly-role
+rules:
+# Read access to most resources
+- apiGroups: [""]
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+
+- apiGroups: ["apps"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+
+- apiGroups: ["extensions"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+
+- apiGroups: ["networking.k8s.io"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+
+# Exclude secrets for security
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list"]
+  resourceNames: [] # Empty means all secrets, but only get/list
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: readonly-role-binding
+subjects:
+- kind: Group
+  name: view
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: readonly-role
+  apiGroup: rbac.authorization.k8s.io

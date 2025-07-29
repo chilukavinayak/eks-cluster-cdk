@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: example-app-quota
+  namespace: example-app
+  labels:
+    app: example-app
+    organization: "acme-corp"
+spec:
+  hard:
+    requests.cpu: "2"
+    requests.memory: 4Gi
+    limits.cpu: "4"
+    limits.memory: 8Gi
+    pods: "10"
+    services: "5"
+    persistentvolumeclaims: "3"
+    count/ingresses.networking.k8s.io: "2"
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: example-app-limits
+  namespace: example-app
+  labels:
+    app: example-app
+    organization: "acme-corp"
+spec:
+  limits:
+  - default:
+      cpu: 500m
+      memory: 512Mi
+    defaultRequest:
+      cpu: 100m
+      memory: 128Mi
+    max:
+      cpu: "1"
+      memory: 1Gi
+    min:
+      cpu: 50m
+      memory: 64Mi
+    type: Container
+  - default:
+      storage: 10Gi
+    max:
+      storage: 50Gi
+    min:
+      storage: 1Gi
+    type: PersistentVolumeClaim

@@ -1,29 +1,83 @@
 # Production-Grade AWS EKS Cluster Infrastructure
 
-This CDK project provides a comprehensive **EKS cluster infrastructure** for deploying production-ready Kubernetes clusters:
+This CDK project provides a comprehensive **EKS cluster infrastructure** for deploying production-ready Kubernetes clusters with enterprise-grade security, monitoring, and cost optimization.
 
-- ✅ **Foundation Stack** - IAM roles, security groups, KMS encryption
-- ✅ **EKS Cluster Stack** - Control plane with private/public endpoints
-- ✅ **Compute Stack** - Managed node groups and Fargate profiles
-- ✅ **Addons Stack** - Essential cluster add-ons (CNI, CoreDNS, CSI drivers)
-- ✅ **Enterprise-grade security** (KMS encryption, IRSA, security groups)
-- ✅ **Production monitoring** (CloudWatch logs, metrics, alerts)
-- ✅ **Cost-optimized** (GP3 storage, right-sized instances, spot instances)
-- ✅ **Ready for applications** - Deploy your apps in separate CDK projects
+## ✨ Key Features
 
-## Table of Contents
+- **🔐 Role-Based Access Management** - IAM roles with temporary credentials and audit trails
+- **🏗️ Multi-Stack Architecture** - Foundation, Cluster, Compute, Addons, and IAM stacks
+- **🛡️ Enterprise Security** - KMS encryption, RBAC, security groups, and private networking
+- **📊 Production Monitoring** - CloudWatch logs, metrics, and comprehensive observability
+- **💰 Cost Optimized** - GP3 storage, spot instances, and right-sized compute resources
+- **🚀 CI/CD Ready** - Automated deployment with dedicated service roles
+- **⚡ High Availability** - Multi-AZ deployment with auto-scaling and Fargate support
 
-1. [Production-Ready Improvements](#1-production-ready-improvements)
-2. [Deployment Strategy](#2-deployment-strategy)
-3. [CDK Project Structure](#3-cdk-project-structure)
-4. [Deployment Commands](#4-deployment-commands)
-5. [Configuration](#5-configuration)
-6. [Security Best Practices](#6-security-best-practices)
-7. [Production Checklist](#7-production-checklist)
+## 📋 Quick Start
+
+```bash
+# Deploy infrastructure in sequence
+cdk deploy sats-portals-dev-Foundation --require-approval never
+cdk deploy sats-portals-dev-IAM --require-approval never  
+cdk deploy sats-portals-dev-EksCluster --require-approval never
+cdk deploy sats-portals-dev-Compute --require-approval never
+cdk deploy sats-portals-dev-Addons --require-approval never
+
+# Configure access with role-based authentication
+./scripts/assume-eks-role.sh admin
+aws eks update-kubeconfig --region us-east-1 --name sats-portals-eks-cluster
+```
 
 ---
 
 ## 1. Production-Ready Improvements
+
+### 🆕 Role-Based Access Management
+
+**✅ Excellent Decision! Role-Based Access is Much Better**
+
+We've implemented a comprehensive IAM role-based access system to replace hardcoded user authentication:
+
+#### ✅ What Changed:
+
+**1. Created IAM Management Stack**
+- **Admin Role**: Full cluster access with system:masters permissions
+- **Developer Role**: Namespace-scoped access for development workflows  
+- **ReadOnly Role**: View-only permissions for monitoring and auditing
+- **CI/CD Role**: Automated deployment access for pipelines
+- **Dedicated EKS Admin User**: For human administrators with role assumption capabilities
+
+**2. Security Improvements**
+- ✅ **No hardcoded users** in infrastructure code
+- ✅ **Temporary credentials** with automatic expiration
+- ✅ **Principle of least privilege** access control
+- ✅ **Easy credential rotation** and management
+- ✅ **Comprehensive audit trail** for all cluster access
+
+**3. Operational Benefits**
+- ✅ **Scalable team management** - easy to add/remove users
+- ✅ **Role assumption scripts** for streamlined automation
+- ✅ **RBAC configurations** for fine-grained Kubernetes permissions
+- ✅ **CI/CD pipeline ready** with proper service roles
+
+#### 🚀 Future Impact Analysis:
+
+**Positive Impacts:**
+- **Better Security**: Role-based access prevents credential sprawl and unauthorized access
+- **Team Scalability**: Easy to add new team members with appropriate permission levels
+- **Compliance**: Enhanced audit trails and access control for regulatory requirements
+- **CI/CD Integration**: Seamless automation with dedicated service roles
+- **Identity Provider Ready**: Can integrate with AWS SSO, OIDC, and external identity providers
+
+**No Negative Impacts:**
+- Slightly more complex initial setup (but much better long-term maintainability)
+- Industry best practice for production environments
+- More secure and auditable than hardcoded approaches
+
+#### 📋 Quick Access:
+- Deploy IAM stack for role-based authentication
+- Use automated role assumption scripts for secure access
+- Apply RBAC configurations for fine-grained permissions
+- Test different access levels (admin, developer, readonly)
 
 ### 🔐 Security Enhancements
 
@@ -105,974 +159,230 @@ This CDK project provides a comprehensive **EKS cluster infrastructure** for dep
 
 ## 2. Deployment Strategy
 
-This CDK project deploys EKS cluster infrastructure in 4 sequential phases:
+### 🚀 5-Phase Sequential Deployment (~30-45 minutes total)
 
-### 📋 Phase 1: Foundation (2-5 minutes)
-**Stack: `sats-portals-dev-Foundation`**
-- IAM roles and policies for EKS cluster
-- KMS keys for encryption
-- Security groups (cluster, nodes)
-- VPC configuration
+1. **Foundation (2-5 min)** - IAM roles, KMS keys, security groups, VPC configuration
+2. **IAM Management (2-3 min)** - Role-based access control with admin, dev, readonly, and CI/CD roles  
+3. **EKS Cluster (10-15 min)** - Control plane, logging, OIDC provider, authentication
+4. **Compute Resources (8-12 min)** - Managed node groups, Fargate profiles, auto-scaling
+5. **Essential Add-ons (3-6 min)** - VPC CNI, CoreDNS, kube-proxy, EBS CSI, Load Balancer Controller
 
-### 🏗️ Phase 2: EKS Cluster (10-15 minutes)
-**Stack: `sats-portals-dev-EksCluster`**
-- EKS control plane
-- Cluster logging setup
-- OIDC identity provider
-- Node group and Fargate roles
-
-### 💻 Phase 3: Compute Resources (8-12 minutes)
-**Stack: `sats-portals-dev-Compute`**
-- Managed node groups
-- Fargate profiles
-- Auto Scaling configurations
-- Launch templates
-
-### 🔧 Phase 4: Essential Add-ons (3-6 minutes)
-**Stack: `sats-portals-dev-Addons`**
-- AWS VPC CNI
-- CoreDNS
-- kube-proxy
-- EBS CSI driver
-- AWS Load Balancer Controller
-
-### 🎯 Result: Ready for Applications
-After these 4 stacks, your EKS cluster is ready for application deployments via separate CDK projects.
-
-**Total Deployment Time:** ~25-40 minutes
+**Result:** Production-ready EKS cluster with role-based access and enterprise security
 
 ---
 
-## 3. Production-Grade EKS Cluster Setup
+## 3. Architecture & Configuration
 
-### A. Prerequisites
+### 📋 Prerequisites
+- Existing VPC with 2-3 private subnets across different AZs
+- AWS CLI configured with appropriate permissions  
+- kubectl installed for cluster management
+- CDK project structure ready for multi-environment deployment
 
-Before proceeding, ensure you have:
+### 🏗️ Core Components
 
-- **Existing VPC** with at least 2–3 private subnets across different AZs
-- **IAM roles & policies** for EKS cluster, Fargate nodes, and worker node groups
-- **CDK project structure** ready for multi-environment deployment (dev, stage, prod)
-- **AWS CLI** configured with appropriate permissions
-- **kubectl** installed for cluster management
+#### EKS Cluster Configuration
+- **Control Plane**: Private/public endpoints with comprehensive logging (API, Audit, Authenticator, Controller Manager, Scheduler)
+- **Encryption**: KMS encryption for secrets and CloudWatch logs
+- **Networking**: VPC CNI with secondary CIDRs for IP management
+- **Security**: IRSA for pod-level permissions, RBAC with AWS Auth ConfigMap
 
-### B. Core EKS Setup Steps
-
-#### 1. Create EKS Cluster in Private Subnets
-
-**Key Configuration:**
-- Control plane endpoint: **private only**
-- Disable public endpoint access
-- Attach cluster security group allowing access from internal EC2s only
-- Enable encryption with AWS KMS for secrets
-- Enable comprehensive cluster logging
-
-**Logging Components:**
-- API Server logs
-- Audit logs
-- Authenticator logs
-- Controller Manager logs
-- Scheduler logs
-
-#### 2. Worker Node Groups / Fargate Profiles
-
-**Options:**
-- **Managed Node Groups**: EC2 instances in private subnets with auto-scaling
-- **Fargate Profiles**: Serverless workloads for specific namespaces
+#### Compute Options  
+- **Managed Node Groups**: EC2 instances in private subnets with auto-scaling and spot instance support
+- **Fargate Profiles**: Serverless workloads for system and application namespaces
 - **Cluster Autoscaler**: Automatic scaling based on pod requirements
 
-#### 3. Networking Configuration
-
-**VPC CNI Plugin:**
-- Configure secondary CIDRs if IP exhaustion is a concern
-- Enable private DNS resolution in the VPC
-- Use internal-only load balancers
-
-**Load Balancer Configuration:**
-```yaml
-# For internal-only access
-service.beta.kubernetes.io/aws-load-balancer-internal: "true"
-```
-
-#### 4. Access & Security
-
-**Security Features:**
-- **IRSA (IAM Roles for Service Accounts)**: Pod-level permissions
-- **RBAC**: Role-based access control with AWS Auth ConfigMap
-- **Secrets Management**: AWS Secrets Manager or KMS-encrypted Secrets
-- **Network Policies**: Pod-to-pod communication restrictions
-
-#### 5. Monitoring & Logging
-
-**Monitoring Options:**
-- Prometheus + AWS Managed Grafana
-- CloudWatch Container Insights
-- Audit logs for compliance
-
-#### 6. Access from EC2 (Current Setup)
-
-**Requirements:**
-- EC2 instances in the same VPC and private subnets
-- Install kubectl on EC2 instances
-- Update kubeconfig: `aws eks update-kubeconfig`
-- Access internal services via internal load balancer DNS names
-
-#### 7. Future Public Access (Roadmap)
-
-**Components for Later:**
-- AWS Load Balancer Controller for ingress
-- Public ALB/NLB with WAF protection
-- SSL/TLS termination
-- External DNS for domain management
+#### Monitoring & Security
+- **CloudWatch Integration**: Container Insights, log aggregation, custom metrics
+- **Security Features**: Network policies, pod security standards, secrets management
+- **Load Balancing**: Internal ALBs/NLBs with AWS Load Balancer Controller
 
 ---
 
-## 4. Application Onboarding to EKS using CDK TypeScript
+## 4. Application Deployment
 
-### A. CDK Project Structure
+### 📁 Project Structure
+- **lib/** - CDK stack definitions (foundation, cluster, compute, addons, IAM, application, monitoring)
+- **bin/** - CDK app entry point with environment configuration  
+- **config/** - Environment-specific settings (dev, staging, prod)
+- **manifests/** - Kubernetes YAML files organized by namespaces
+- **rbac-configs/** - Role-based access control configurations
+- **scripts/** - Automation scripts for role assumption and addon updates
 
-```
-eks-cluster-cdk/
-├── lib/
-│   ├── foundation-stack.ts        # IAM roles, security groups, KMS
-│   ├── eks-cluster-stack.ts       # EKS control plane
-│   ├── compute-stack.ts           # Node groups and Fargate
-│   ├── addons-stack.ts            # Essential cluster add-ons
-│   ├── application-stack.ts       # Application deployments
-│   ├── monitoring-stack.ts        # Monitoring and logging setup
-│   └── networking-stack.ts        # VPC and networking (if creating new)
-├── bin/
-│   └── cdk.ts                     # CDK app entry point
-├── config/
-│   ├── dev.json                   # Development environment config
-│   ├── stage.json                 # Staging environment config
-│   └── prod.json                  # Production environment config
-└── manifests/
-    ├── namespaces/
-    ├── deployments/
-    └── services/
-```
+### 🚀 Application Deployment Workflow
 
-### B. Application Deployment Steps
+#### Step 1: Environment Setup
+- Create dedicated namespaces for applications
+- Configure service accounts with IRSA for secure AWS service access
+- Set up resource quotas and network policies
 
-#### 1. Create Namespaces
+#### Step 2: Container Management  
+- Build and push Docker images to Amazon ECR private registry
+- Configure image scanning and vulnerability management
+- Implement container security best practices
 
-**Via kubectl:**
-```bash
-kubectl create namespace <app-namespace>
-```
+#### Step 3: Kubernetes Resources
+- Deploy applications using CDK manifests or Helm charts
+- Configure services with internal load balancers
+- Set up ConfigMaps and Secrets for environment configuration
+- Implement horizontal pod autoscaling (HPA)
 
-**Via CDK:**
-```typescript
-cluster.addManifest('app-namespace', {
-  apiVersion: 'v1',
-  kind: 'Namespace',
-  metadata: {
-    name: 'app-namespace'
-  }
-});
-```
-
-#### 2. Create Service Accounts with IRSA
-
-Map AWS IAM permissions to pods securely using IAM Roles for Service Accounts.
-
-#### 3. Build and Push Docker Images
-
-- Build application Docker images
-- Push to Amazon ECR (private registry)
-- Use ECR for secure, private image storage
-
-#### 4. Create Kubernetes Manifests
-
-**Components:**
-- **Deployment**: Application pods configuration
-- **Service**: ClusterIP or LoadBalancer (internal-only)
-- **ConfigMaps & Secrets**: Environment configurations
-- **Ingress**: Internal routing (future public access)
-
-**CDK Integration Options:**
-- Use `cluster.addManifest()` for direct YAML
-- Integrate with Helm charts
-- Use CDK8s for type-safe Kubernetes manifests
-
-#### 5. Access from EC2
-
-**Testing Steps:**
-```bash
-# SSH into EC2 inside the VPC
-ssh -i key.pem ec2-user@<private-ip>
-
-# Test cluster access
-kubectl get pods -n <app-namespace>
-
-# Test application access
-curl http://<internal-lb-dns>
-```
-
-#### 6. Continuous Deployment (Optional)
-
-**CI/CD Integration Options:**
-- AWS CodePipeline
-- ArgoCD for GitOps
-- FluxCD for declarative deployments
-- GitHub Actions with OIDC
+#### Step 4: CI/CD Integration
+- **GitOps**: ArgoCD or FluxCD for declarative deployments
+- **Pipeline**: AWS CodePipeline with automated testing
+- **External**: GitHub Actions with OIDC provider integration
 
 ---
 
-## 5. CDK Project Structure
+## 5. Stack Architecture
 
-### Updated Stack Components (Based on Incremental Strategy)
+### 📦 Stack Components
 
-#### Foundation Stack (`foundation-stack.ts`)
-- IAM roles and policies
-- Security groups
-- KMS keys
-- VPC endpoints
+- **Foundation Stack** - IAM roles, security groups, KMS keys, VPC configuration
+- **IAM Management Stack** - Role-based access control with admin, dev, readonly, and CI/CD roles
+- **EKS Cluster Stack** - Control plane, logging, OIDC provider, authentication  
+- **Compute Stack** - Managed node groups, Fargate profiles, auto-scaling, launch templates
+- **Addons Stack** - VPC CNI, CoreDNS, kube-proxy, EBS CSI driver, Load Balancer Controller
+- **Application Stack** - Kubernetes manifests, service accounts with IRSA, app resources
+- **Monitoring Stack** - CloudWatch log groups, Prometheus, Grafana, alerting, dashboards
 
-#### EKS Cluster Stack (`eks-cluster-stack.ts`)
-- EKS control plane
-- Cluster configuration
-- OIDC identity provider
-- Basic logging
+### ⚙️ Environment Configuration
 
-#### Compute Stack (`compute-stack.ts`)
-- Managed node groups
-- Fargate profiles
-- Auto Scaling groups
-- Launch templates
-
-#### Essential Add-ons Stack (`addons-stack.ts`)
-- VPC CNI add-on
-- CoreDNS add-on
-- kube-proxy add-on
-- EBS CSI driver
-- AWS Load Balancer Controller
-
-#### Application Stack (`application-stack.ts`)
-- Kubernetes manifests
-- Service accounts with IRSA
-- Application-specific resources
-- Internal load balancers
-
-#### Monitoring Stack (`monitoring-stack.ts`)
-- CloudWatch log groups
-- Prometheus and Grafana setup
-- Alerting configurations
-- Dashboard provisioning
-
-### Environment Configuration
-
-Use context variables for different environments:
-
-```json
-{
-  "dev": {
-    "cluster-name": "dev-eks-cluster",
-    "node-instance-type": "t3.medium",
-    "min-nodes": 1,
-    "max-nodes": 3
-  },
-  "prod": {
-    "cluster-name": "prod-eks-cluster", 
-    "node-instance-type": "m5.large",
-    "min-nodes": 2,
-    "max-nodes": 10
-  }
-}
-```
+Configure different environments using JSON context files:
+- **Development**: t3.medium instances, 1-3 nodes, cost-optimized settings
+- **Staging**: m5.large instances, 2-5 nodes, production-like configuration  
+- **Production**: m5.xlarge instances, 3-20 nodes, high availability and performance
 
 ---
 
-## 6. Deployment Commands
+## 6. Operations & Management
 
-### Initial Setup
+### 🚀 Deployment Commands
+- **Initial Setup**: Install dependencies, bootstrap CDK, synthesize templates
+- **Sequential Deployment**: Deploy stacks in order with proper dependencies
+- **Parallel Deployment**: Deploy non-dependent stacks simultaneously for faster setup
+- **Environment-Specific**: Use context variables for dev/staging/prod configurations
 
-```bash
-# Install dependencies
-npm install
+### 🔧 Cluster Management  
+- **Access Configuration**: Update kubeconfig, verify connectivity, manage user access
+- **Resource Monitoring**: Check node health, pod status, cluster metrics
+- **Application Management**: Deploy manifests, monitor deployments, view logs
+- **Troubleshooting**: Port forwarding, log analysis, resource debugging
 
-# Bootstrap CDK (first time only)
-cdk bootstrap
-
-# Synthesize CloudFormation templates
-cdk synth
-```
-
-### Incremental Deployment (Recommended)
-
-```bash
-# Phase 1: Foundation (2-5 minutes)
-cdk deploy sats-portals-dev-Foundation
-
-# Phase 2: Core EKS Cluster (10-15 minutes) 
-cdk deploy sats-portals-dev-EksCluster
-
-# Phase 3: Compute Resources (8-12 minutes)
-cdk deploy sats-portals-dev-Compute
-
-# Phase 4: Essential Add-ons (3-6 minutes)
-cdk deploy sats-portals-dev-Addons
-
-# Phase 5: Application Manifests (2-5 minutes) - NEW SEPARATE STACK
-cdk deploy sats-portals-dev-ApplicationManifests
-
-# Phase 6: Application Stack (2-10 minutes) - Optional for app-specific resources
-# cdk deploy sats-portals-dev-Application
-
-# Phase 7: Monitoring (5-10 minutes) - Optional
-# cdk deploy sats-portals-dev-Monitoring
-```
-
-### Fast Parallel Deployment
-
-```bash
-# Deploy foundation and cluster first
-cdk deploy FoundationStack --context env=prod
-cdk deploy EksClusterStack --context env=prod
-cdk deploy ComputeStack --context env=prod
-
-# Deploy remaining stacks in parallel
-cdk deploy EssentialAddonsStack ApplicationStack MonitoringStack --context env=prod
-```
-
-### Development Quick Start
-
-```bash
-# Minimal setup for development
-cdk deploy FoundationStack EksClusterStack ComputeStack --context env=dev
-```
-
-### Cluster Management
-
-```bash
-# Update kubeconfig
-aws eks update-kubeconfig --region us-east-1 --name prod-eks-cluster
-
-# Verify cluster access
-kubectl get nodes
-
-# Check cluster info
-kubectl cluster-info
-
-# Monitor cluster resources
-kubectl top nodes
-kubectl top pods --all-namespaces
-```
-
-### Application Deployment
-
-```bash
-# Apply manifests
-kubectl apply -f manifests/
-
-# Check deployment status
-kubectl get deployments -n <app-namespace>
-
-# View application logs
-kubectl logs -f deployment/<app-name> -n <app-namespace>
-
-# Port forward for testing (from EC2)
-kubectl port-forward service/<service-name> 8080:80 -n <app-namespace>
-```
+### 📊 Monitoring & Maintenance
+- **Automated Addon Updates**: Scripts to keep EKS addons current
+- **Role-Based Access**: Secure authentication with temporary credentials  
+- **Resource Optimization**: Auto-scaling, spot instances, resource quotas
+- **Security Management**: RBAC policies, network policies, vulnerability scanning
 
 ---
 
-## 7. CDK TypeScript Code Examples
+## 7. Cost Optimization & Best Practices
 
-### Foundation Stack Example
+### 💰 Cost Optimization Strategies
 
-```typescript
-// lib/foundation-stack.ts
-import * as cdk from 'aws-cdk-lib';
-import * as iam from 'aws-cdk-lib/aws-iam';
-import * as kms from 'aws-cdk-lib/aws-kms';
-import * as ec2 from 'aws-cdk-lib/aws-ec2';
-import { Construct } from 'constructs';
+#### Instance Selection & Scaling
+- **Development**: Use t3.medium/t3.large with spot instances for 70% cost savings
+- **Production**: Use m5.large/c5.large for consistent performance with on-demand/spot mix
+- **Auto Scaling**: Configure aggressive scaling policies with min size 0 for non-production
+- **Mixed Instance Types**: Combine multiple instance types for better availability and cost
 
-export interface FoundationStackProps extends cdk.StackProps {
-  clusterName: string;
-  environment: string;
-}
+#### Storage Optimization  
+- **EBS GP3**: Use GP3 volumes instead of GP2 for better price/performance
+- **Persistent Volumes**: Right-size storage requests and implement storage classes
+- **Backup Strategy**: Use automated snapshots with appropriate retention policies
 
-export class FoundationStack extends cdk.Stack {
-  public readonly clusterRole: iam.Role;
-  public readonly nodeGroupRole: iam.Role;
-  public readonly fargateRole: iam.Role;
-  public readonly kmsKey: kms.Key;
-  public readonly clusterSecurityGroup: ec2.SecurityGroup;
+#### Fargate vs EC2 Analysis
+- **Fargate**: Pay-per-pod pricing, ideal for variable/intermittent workloads  
+- **EC2**: Lower hourly cost, better for consistent/predictable workloads
+- **Hybrid Approach**: Use Fargate for system pods, EC2 for application workloads
 
-  constructor(scope: Construct, id: string, props: FoundationStackProps) {
-    super(scope, id, props);
+### 🔒 Security Best Practices
 
-    // KMS Key for EKS cluster encryption
-    this.kmsKey = new kms.Key(this, 'EksKmsKey', {
-      alias: `${props.clusterName}-eks-key`,
-      description: `KMS key for ${props.clusterName} EKS cluster`,
-      enableKeyRotation: true,
-    });
+#### Network Security
+- **Private Networking**: All worker nodes in private subnets with no direct internet access
+- **Security Groups**: Minimal required ports with principle of least privilege
+- **VPC Endpoints**: Essential endpoints for private cluster communication (ECR, S3, EC2, EKS)
+- **Network Policies**: Pod-to-pod communication restrictions using Kubernetes network policies
 
-    // EKS Cluster Service Role
-    this.clusterRole = new iam.Role(this, 'EksClusterRole', {
-      assumedBy: new iam.ServicePrincipal('eks.amazonaws.com'),
-      managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonEKSClusterPolicy'),
-      ],
-    });
+#### IAM Security  
+- **Role-Based Access**: Use IAM roles instead of hardcoded users for all access
+- **IRSA**: IAM Roles for Service Accounts for granular pod-level permissions
+- **Temporary Credentials**: Automatic credential rotation with time-limited access
+- **Audit Logging**: Comprehensive CloudWatch audit logs for compliance
 
-    // EKS Node Group Role
-    this.nodeGroupRole = new iam.Role(this, 'EksNodeGroupRole', {
-      assumedBy: new iam.ServicePrincipal('ec2.amazonaws.com'),
-      managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonEKSWorkerNodePolicy'),
-        iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonEKS_CNI_Policy'),
-        iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonEC2ContainerRegistryReadOnly'),
-        iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonEBSCSIDriverPolicy'),
-      ],
-    });
+#### Data Protection
+- **Encryption at Rest**: KMS encryption for EBS volumes, secrets, and CloudWatch logs
+- **Encryption in Transit**: TLS for all inter-service communication
+- **Secrets Management**: Use AWS Secrets Manager or External Secrets Operator
+- **Image Security**: Enable ECR image scanning and vulnerability assessments
 
-    // Fargate Pod Execution Role
-    this.fargateRole = new iam.Role(this, 'EksFargateRole', {
-      assumedBy: new iam.ServicePrincipal('eks-fargate-pods.amazonaws.com'),
-      managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonEKSFargatePodExecutionRolePolicy'),
-      ],
-    });
+### 📊 Monitoring & Observability
 
-    // Security Group for EKS Cluster
-    this.clusterSecurityGroup = new ec2.SecurityGroup(this, 'EksClusterSecurityGroup', {
-      vpc: ec2.Vpc.fromLookup(this, 'ExistingVpc', {
-        vpcId: this.node.tryGetContext('vpcId'),
-      }),
-      description: `Security group for ${props.clusterName} EKS cluster`,
-      allowAllOutbound: false,
-    });
+#### CloudWatch Integration
+- **Container Insights**: Enable for comprehensive cluster and container metrics
+- **Log Aggregation**: Centralized logging with proper retention policies
+- **Custom Metrics**: Application-specific metrics with CloudWatch custom metrics
+- **Alerting**: Set up alerts for critical cluster events and resource thresholds
 
-    // Allow HTTPS traffic within VPC
-    this.clusterSecurityGroup.addIngressRule(
-      ec2.Peer.ipv4('10.0.0.0/8'),
-      ec2.Port.tcp(443),
-      'Allow HTTPS from VPC'
-    );
-
-    // Tags
-    cdk.Tags.of(this).add('Environment', props.environment);
-    cdk.Tags.of(this).add('Project', 'EKS-Cluster');
-  }
-}
-```
-
-### EKS Cluster Stack Example
-
-```typescript
-// lib/eks-cluster-stack.ts
-import * as cdk from 'aws-cdk-lib';
-import * as eks from 'aws-cdk-lib/aws-eks';
-import * as ec2 from 'aws-cdk-lib/aws-ec2';
-import * as logs from 'aws-cdk-lib/aws-logs';
-import { Construct } from 'constructs';
-import { FoundationStack } from './foundation-stack';
-
-export interface EksClusterStackProps extends cdk.StackProps {
-  foundationStack: FoundationStack;
-  clusterName: string;
-  environment: string;
-}
-
-export class EksClusterStack extends cdk.Stack {
-  public readonly cluster: eks.Cluster;
-
-  constructor(scope: Construct, id: string, props: EksClusterStackProps) {
-    super(scope, id, props);
-
-    // Get existing VPC
-    const vpc = ec2.Vpc.fromLookup(this, 'ExistingVpc', {
-      vpcId: this.node.tryGetContext('vpcId'),
-    });
-
-    // Private subnets only
-    const privateSubnets = vpc.privateSubnets;
-
-    // CloudWatch Log Group for cluster logs
-    const logGroup = new logs.LogGroup(this, 'EksClusterLogGroup', {
-      logGroupName: `/aws/eks/${props.clusterName}/cluster`,
-      retention: logs.RetentionDays.ONE_MONTH,
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
-    });
-
-    // Create EKS Cluster
-    this.cluster = new eks.Cluster(this, 'EksCluster', {
-      clusterName: props.clusterName,
-      version: eks.KubernetesVersion.V1_28,
-      
-      // Use existing VPC and private subnets only
-      vpc: vpc,
-      vpcSubnets: [{ subnets: privateSubnets }],
-      
-      // Private endpoint only
-      endpointAccess: eks.EndpointAccess.PRIVATE,
-      
-      // Use foundation stack resources
-      role: props.foundationStack.clusterRole,
-      securityGroup: props.foundationStack.clusterSecurityGroup,
-      
-      // Encryption
-      secretsEncryptionKey: props.foundationStack.kmsKey,
-      
-      // Logging
-      clusterLogging: [
-        eks.ClusterLoggingTypes.API,
-        eks.ClusterLoggingTypes.AUDIT,
-        eks.ClusterLoggingTypes.AUTHENTICATOR,
-        eks.ClusterLoggingTypes.CONTROLLER_MANAGER,
-        eks.ClusterLoggingTypes.SCHEDULER,
-      ],
-      
-      // Don't create default node group
-      defaultCapacity: 0,
-      
-      // Default namespace
-      defaultCapacityInstance: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MEDIUM),
-    });
-
-    // Output cluster info
-    new cdk.CfnOutput(this, 'ClusterName', {
-      value: this.cluster.clusterName,
-    });
-
-    new cdk.CfnOutput(this, 'ClusterEndpoint', {
-      value: this.cluster.clusterEndpoint,
-    });
-
-    // Tags
-    cdk.Tags.of(this).add('Environment', props.environment);
-    cdk.Tags.of(this).add('Project', 'EKS-Cluster');
-  }
-}
-```
-
-### Compute Stack Example
-
-```typescript
-// lib/compute-stack.ts
-import * as cdk from 'aws-cdk-lib';
-import * as eks from 'aws-cdk-lib/aws-eks';
-import * as ec2 from 'aws-cdk-lib/aws-ec2';
-import { Construct } from 'constructs';
-import { EksClusterStack } from './eks-cluster-stack';
-import { FoundationStack } from './foundation-stack';
-
-export interface ComputeStackProps extends cdk.StackProps {
-  eksClusterStack: EksClusterStack;
-  foundationStack: FoundationStack;
-  environment: string;
-}
-
-export class ComputeStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props: ComputeStackProps) {
-    super(scope, id, props);
-
-    const cluster = props.eksClusterStack.cluster;
-
-    // Get environment-specific config
-    const config = this.node.tryGetContext(props.environment) || {};
-    
-    // Managed Node Group
-    const nodeGroup = cluster.addNodegroupCapacity('managed-node-group', {
-      instanceTypes: [
-        new ec2.InstanceType(config.nodeInstanceType || 'm5.large')
-      ],
-      minSize: config.minNodes || 1,
-      maxSize: config.maxNodes || 10,
-      desiredSize: config.desiredNodes || 2,
-      
-      // Use private subnets only
-      subnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
-      
-      // Use foundation stack role
-      nodeRole: props.foundationStack.nodeGroupRole,
-      
-      // AMI type
-      amiType: eks.NodegroupAmiType.AL2_X86_64,
-      capacityType: eks.CapacityType.ON_DEMAND,
-      
-      // Storage
-      diskSize: 50,
-      
-      // Labels and taints
-      labels: {
-        'node-type': 'managed',
-        'environment': props.environment,
-      },
-      
-      // Auto Scaling
-      tags: {
-        'k8s.io/cluster-autoscaler/enabled': 'true',
-        [`k8s.io/cluster-autoscaler/${cluster.clusterName}`]: 'owned',
-      },
-    });
-
-    // Fargate Profile for system workloads
-    cluster.addFargateProfile('system-fargate-profile', {
-      selectors: [
-        { namespace: 'kube-system' },
-        { namespace: 'aws-load-balancer-controller' },
-      ],
-      fargateProfileName: 'system-workloads',
-      podExecutionRole: props.foundationStack.fargateRole,
-      subnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
-    });
-
-    // Application Fargate Profile
-    cluster.addFargateProfile('app-fargate-profile', {
-      selectors: [
-        { namespace: 'default' },
-        { namespace: 'applications' },
-      ],
-      fargateProfileName: 'application-workloads',
-      podExecutionRole: props.foundationStack.fargateRole,
-      subnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
-    });
-
-    // Tags
-    cdk.Tags.of(this).add('Environment', props.environment);
-    cdk.Tags.of(this).add('Project', 'EKS-Cluster');
-  }
-}
-```
-
-### CDK App Entry Point
-
-```typescript
-// bin/cdk.ts
-#!/usr/bin/env node
-import 'source-map-support/register';
-import * as cdk from 'aws-cdk-lib';
-import { FoundationStack } from '../lib/foundation-stack';
-import { EksClusterStack } from '../lib/eks-cluster-stack';
-import { ComputeStack } from '../lib/compute-stack';
-
-const app = new cdk.App();
-
-// Get environment context
-const environment = app.node.tryGetContext('env') || 'dev';
-const config = app.node.tryGetContext(environment) || {};
-
-const env = {
-  account: process.env.CDK_DEFAULT_ACCOUNT,
-  region: process.env.CDK_DEFAULT_REGION || 'us-east-1',
-};
-
-// Foundation Stack
-const foundationStack = new FoundationStack(app, 'FoundationStack', {
-  env,
-  clusterName: config.clusterName || `${environment}-eks-cluster`,
-  environment,
-});
-
-// EKS Cluster Stack
-const eksClusterStack = new EksClusterStack(app, 'EksClusterStack', {
-  env,
-  foundationStack,
-  clusterName: config.clusterName || `${environment}-eks-cluster`,
-  environment,
-});
-eksClusterStack.addDependency(foundationStack);
-
-// Compute Stack
-const computeStack = new ComputeStack(app, 'ComputeStack', {
-  env,
-  eksClusterStack,
-  foundationStack,
-  environment,
-});
-computeStack.addDependency(eksClusterStack);
-```
-
-### Environment Configuration
-
-```json
-// config/prod.json
-{
-  "clusterName": "prod-eks-cluster",
-  "vpcId": "vpc-xxxxxxxxx",
-  "nodeInstanceType": "m5.xlarge",
-  "minNodes": 3,
-  "maxNodes": 20,
-  "desiredNodes": 5
-}
-```
-
-```json
-// config/dev.json
-{
-  "clusterName": "dev-eks-cluster", 
-  "vpcId": "vpc-yyyyyyyyy",
-  "nodeInstanceType": "t3.medium",
-  "minNodes": 1,
-  "maxNodes": 5,
-  "desiredNodes": 2
-}
-```
+#### Performance Monitoring
+- **Resource Utilization**: Monitor CPU, memory, and storage usage across nodes
+- **Application Performance**: Use AWS X-Ray for distributed tracing
+- **Cost Monitoring**: Track spending with AWS Cost Explorer and budget alerts
+- **Capacity Planning**: Monitor trends for informed scaling decisions
 
 ---
 
-## 8. Cost Optimization & Networking
+## 8. Production Checklist
 
-### Cost Optimization Strategies
+### 🔍 Pre-Deployment Verification
+- **Security Review**: Verify VPC CIDR compatibility, IAM permissions, KMS key configurations
+- **Infrastructure Planning**: Review instance types, storage requirements, subnet IP allocation
+- **Monitoring Setup**: Configure CloudWatch Container Insights, log retention, alerting thresholds
 
-#### 1. Instance Selection
-- **Development**: Use `t3.medium` or `t3.large` with spot instances
-- **Production**: Use `m5.large` or `c5.large` for consistent performance
-- **Mixed instance types**: Combine on-demand and spot instances
-
-#### 2. Auto Scaling Configuration
-```typescript
-// Aggressive scaling for cost optimization
-nodeGroup.addNodegroupCapacity('cost-optimized-nodes', {
-  instanceTypes: [
-    new ec2.InstanceType('t3.medium'),
-    new ec2.InstanceType('t3.large'),
-  ],
-  capacityType: eks.CapacityType.SPOT, // 70% cost savings
-  minSize: 0, // Scale to zero when not needed
-  maxSize: 10,
-  desiredSize: 1,
-});
-```
-
-#### 3. Fargate vs EC2 Cost Analysis
-- **Fargate**: Pay per pod, no idle capacity, good for variable workloads
-- **EC2**: Lower cost per hour, better for consistent workloads
-- **Hybrid**: Use Fargate for system pods, EC2 for application pods
-
-### Networking Deep Dive
-
-#### 1. VPC Endpoints (Required for Private Clusters)
-```typescript
-// Essential VPC endpoints for private EKS
-const endpoints = [
-  'com.amazonaws.region.eks',
-  'com.amazonaws.region.ec2',
-  'com.amazonaws.region.ecr.dkr',
-  'com.amazonaws.region.ecr.api',
-  'com.amazonaws.region.s3',
-  'com.amazonaws.region.logs',
-  'com.amazonaws.region.sts',
-];
-
-endpoints.forEach(service => {
-  vpc.addInterfaceEndpoint(`${service}-endpoint`, {
-    service: ec2.InterfaceVpcEndpointAwsService.fromName(service),
-    subnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
-  });
-});
-```
-
-#### 2. Subnet IP Planning
-- **Minimum**: `/24` per subnet (254 IPs)
-- **Recommended**: `/22` per subnet (1022 IPs) 
-- **Pod density**: ~30 pods per `m5.large` node
-- **IP allocation**: Each pod gets VPC IP (consider secondary CIDR)
-
-#### 3. Security Group Rules
-```typescript
-// Minimal security group rules
-clusterSG.addIngressRule(
-  ec2.Peer.ipv4(vpc.vpcCidrBlock),
-  ec2.Port.tcp(443),
-  'EKS API access from VPC'
-);
-
-nodeSG.addIngressRule(
-  clusterSG,
-  ec2.Port.allTcp(),
-  'Cluster to node communication'
-);
-```
-
-#### 4. Load Balancer Strategy
-- **Internal ALB**: For internal services (`internal: true`)
-- **Network Load Balancer**: For high performance requirements
-- **Service mesh**: Consider AWS App Mesh for advanced routing
-
-### Resource Tagging Strategy
-
-```typescript
-// Consistent tagging across all resources
-const commonTags = {
-  'Environment': environment,
-  'Project': 'EKS-Platform',
-  'Owner': 'Platform-Team',
-  'CostCenter': 'Engineering',
-  'Backup': 'Required',
-  'Monitoring': 'CloudWatch',
-};
-
-// Auto-tagging aspect
-cdk.Aspects.of(app).add(new cdk.Tag('CreatedBy', 'CDK'));
-```
-
----
-
-## 9. Security Best Practices
-
-### Network Security
-- All subnets are private with no internet gateway access
-- Security groups restrict access to necessary ports only
-- Network ACLs provide additional layer of protection
-- VPC Flow Logs enabled for network monitoring
-
-### IAM Security
-- Principle of least privilege for all IAM roles
-- IRSA for pod-level permissions instead of node-level
-- Regular rotation of access keys and certificates
-- AWS Config rules for compliance monitoring
-
-### Cluster Security
-- Kubernetes RBAC enabled and configured
-- Pod Security Standards enforced
-- Secrets encrypted at rest with KMS
-- API server audit logging enabled
-
-### Future Considerations
-- WAF integration when exposing publicly
-- Certificate management with ACM
-- External secrets operator for secret management
-- Policy engines like OPA Gatekeeper
-
----
-
-## 10. Production Checklist
-
-### 📋 Pre-Deployment Checklist
-
-#### Security & Compliance
-- [ ] Verify VPC CIDR doesn't conflict with existing networks
-- [ ] Configure public access CIDRs to restrict API server access to specific IPs
-- [ ] Review IAM roles and permissions (principle of least privilege)
-- [ ] Ensure KMS keys have proper admin access configured
-- [ ] Validate security group rules are minimal and necessary
-- [ ] Enable VPC Flow Logs for network monitoring
-- [ ] Configure AWS Config rules for compliance monitoring
-
-#### Infrastructure Planning
-- [ ] Review and adjust node group instance types and sizes for workload requirements
-- [ ] Plan storage requirements and IOPS for persistent volumes
-- [ ] Validate subnet IP address allocation and availability
-- [ ] Configure monitoring and alerting thresholds
-- [ ] Plan backup and disaster recovery strategies
-- [ ] Review cost optimization settings (spot instances, auto-scaling)
-
-#### Monitoring & Observability
-- [ ] Set up CloudWatch Container Insights
-- [ ] Configure log aggregation and retention policies
-- [ ] Set up alerting for critical cluster events
-- [ ] Plan monitoring stack deployment (Prometheus, Grafana)
-- [ ] Configure distributed tracing if needed
-
-### 🚀 Post-Deployment Checklist
-
-#### Essential Setup
-- [ ] Install and configure cluster autoscaler
-- [ ] Set up metrics server for HPA
-- [ ] Configure DNS and SSL certificate management
-- [ ] Implement pod security policies or Pod Security Standards
-- [ ] Set up network policies for workload isolation
-- [ ] Configure resource quotas and limits
-
-#### Security Hardening
-- [ ] Implement OPA Gatekeeper for policy enforcement
-- [ ] Set up External Secrets Operator for secret management
-- [ ] Configure pod security contexts and non-root containers
-- [ ] Enable admission controllers and validation webhooks
-- [ ] Implement service mesh (if required)
-- [ ] Set up image scanning and vulnerability management
-
-#### CI/CD Integration
-- [ ] Set up CI/CD pipelines with proper RBAC
-- [ ] Configure GitOps workflows (ArgoCD/FluxCD)
-- [ ] Implement automated testing and deployment gates
-- [ ] Set up container registry with image scanning
-- [ ] Configure deployment approval workflows
-
-#### Operational Excellence
-- [ ] Document runbooks and incident response procedures
-- [ ] Set up log aggregation and centralized monitoring
-- [ ] Configure automated backups for persistent data
-- [ ] Implement chaos engineering practices
-- [ ] Set up cost monitoring and optimization alerts
-- [ ] Plan regular security and compliance audits
+### 🚀 Post-Deployment Tasks
+- **Essential Components**: Install cluster autoscaler, metrics server, DNS management
+- **Security Hardening**: Implement OPA Gatekeeper, External Secrets Operator, pod security policies
+- **CI/CD Integration**: Configure GitOps workflows, automated testing, deployment pipelines
+- **Operational Excellence**: Set up monitoring, backups, incident response procedures
 
 ### 🏷️ Resource Tagging Standards
-
-Ensure all resources are tagged with:
-```json
-{
-  "Environment": "production",
-  "Project": "sats-portals",
-  "ManagedBy": "CDK",
-  "Repository": "eks-cluster-cdk",
-  "CreatedDate": "YYYY-MM-DD",
-  "CostCenter": "Engineering",
-  "Owner": "Platform-Team",
-  "Backup": "Required",
-  "Monitoring": "CloudWatch"
-}
-```
+- **Required Tags**: Environment, Project, ManagedBy, Repository, CostCenter, Owner
+- **Compliance Tags**: CreatedDate, Backup, Monitoring
+- **Custom Tags**: Application-specific and team-specific identifiers
 
 ### 🚨 Critical Monitoring Alerts
-
-Set up alerts for:
-- Cluster API server availability
-- Node health and resource utilization
-- Pod restart and failure rates
-- Persistent volume capacity
-- Network and security policy violations
-- Cost anomalies and budget thresholds
-
-### 📖 Documentation Requirements
-
-Maintain documentation for:
-- Architecture diagrams and component relationships
-- Deployment procedures and rollback plans
-- Security policies and compliance requirements
-- Monitoring and alerting configurations
-- Incident response and troubleshooting guides
-- Cost optimization and capacity planning
+- **Cluster Health**: API server availability, node health, resource utilization
+- **Application Monitoring**: Pod restart rates, failure rates, performance metrics
+- **Security Alerts**: Network policy violations, unauthorized access attempts
+- **Cost Management**: Budget thresholds, cost anomalies, resource optimization opportunities
 
 ---
 
-## Troubleshooting
+## 9. Troubleshooting Guide
 
-### Common Issues
+### 🔧 Common Issues & Solutions
 
-1. **Node Group Creation Fails**
-   - Check IAM permissions for EKS service role
-   - Verify subnet configurations and availability zones
-   - Ensure sufficient IP addresses in subnets
+#### Deployment Issues
+- **Stack Failures**: Check CloudFormation events, IAM permissions, resource limits
+- **Node Group Issues**: Verify subnet availability, instance limits, IAM role permissions
+- **Network Connectivity**: Validate security groups, VPC endpoints, DNS resolution
 
-2. **Pods Cannot Pull Images**
-   - Verify ECR permissions for node group IAM role
-   - Check VPC endpoints for ECR if using private subnets
-   - Ensure Docker daemon is running on nodes
+#### Application Issues  
+- **Image Pull Errors**: Check ECR permissions, VPC endpoints, image registry connectivity
+- **Pod Scheduling**: Verify resource requests, node capacity, taints and tolerations
+- **Service Discovery**: Validate DNS configuration, service mesh setup, load balancer configuration
 
-3. **kubectl Connection Issues**
-   - Verify EC2 instance can reach EKS API endpoint
-   - Check security group rules for port 443
-   - Ensure kubeconfig is properly configured
+#### Access & Authentication
+- **kubectl Issues**: Update kubeconfig, check IAM permissions, verify cluster endpoint access
+- **RBAC Errors**: Review role bindings, service account permissions, namespace access
+- **Role Assumption**: Validate IAM trust policies, temporary credential expiration
 
-4. **Internal Load Balancer Not Working**
-   - Verify service annotations for internal LB
-   - Check subnet tags for load balancer discovery
-   - Ensure AWS Load Balancer Controller is installed
-
-### Monitoring and Alerting
-
-- Set up CloudWatch alarms for cluster health
-- Monitor node utilization and auto-scaling events
-- Track application performance metrics
-- Configure log aggregation for centralized monitoring
+### 📊 Performance Optimization
+- **Resource Monitoring**: Use CloudWatch insights, Prometheus metrics, application profiling
+- **Auto-scaling**: Configure HPA, VPA, cluster autoscaler for optimal resource utilization  
+- **Cost Optimization**: Monitor spot instance usage, right-size resources, implement resource quotas
 
 ---
 
-This blueprint provides a solid foundation for a production-grade, private EKS cluster that can scale with your organization's needs while maintaining security and operational best practices.
+**🎉 Congratulations!** You now have a production-ready, enterprise-grade EKS cluster with comprehensive security, monitoring, and operational capabilities. This infrastructure provides a solid foundation that can scale with your organization's needs while maintaining the highest standards of security and operational excellence.

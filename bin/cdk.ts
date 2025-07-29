@@ -7,6 +7,7 @@ import { FoundationStack } from '../lib/foundation-stack';
 import { EksClusterStack } from '../lib/eks-cluster-stack';
 import { ComputeStack } from '../lib/compute-stack';
 import { AddonsStack } from '../lib/addons-stack';
+import { IamManagementStack } from '../lib/iam-management-stack';
 
 const app = new cdk.App();
 
@@ -90,6 +91,19 @@ const foundationStack = new FoundationStack(app, `${stackPrefix}-Foundation`, {
   },
 });
 
+// 1.5. IAM Management Stack - Roles and users for EKS access
+const iamStack = new IamManagementStack(app, `${stackPrefix}-IAM`, {
+  env,
+  environment: config.environment,
+  projectName: config.projectName,
+  clusterName: config.clusterName,
+  description: `IAM roles and users for ${config.projectName} EKS cluster access`,
+  tags: {
+    ...config.tags,
+    Stack: 'IAMManagement',
+  },
+});
+
 // 2. EKS Cluster Stack - Control plane
 const eksClusterStack = new EksClusterStack(app, `${stackPrefix}-EksCluster`, {
   env,
@@ -97,6 +111,11 @@ const eksClusterStack = new EksClusterStack(app, `${stackPrefix}-EksCluster`, {
   clusterName: config.clusterName,
   environment: config.environment,
   projectName: config.projectName,
+  // Use IAM roles instead of hardcoded users
+  adminRoleArn: iamStack.eksAdminRole.roleArn,
+  devRoleArn: iamStack.eksDevRole.roleArn,
+  readOnlyRoleArn: iamStack.eksReadOnlyRole.roleArn,
+  cicdRoleArn: iamStack.cicdRole.roleArn,
   description: `EKS cluster control plane for ${config.projectName}`,
   tags: {
     ...config.tags,
@@ -104,6 +123,7 @@ const eksClusterStack = new EksClusterStack(app, `${stackPrefix}-EksCluster`, {
   },
 });
 eksClusterStack.addDependency(foundationStack);
+eksClusterStack.addDependency(iamStack); // Ensure IAM roles are created first
 
 // 3. Compute Stack - Node groups and Fargate
 const computeStack = new ComputeStack(app, `${stackPrefix}-Compute`, {

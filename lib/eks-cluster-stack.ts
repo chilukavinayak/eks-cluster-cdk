@@ -12,6 +12,10 @@ export interface EksClusterStackProps extends cdk.StackProps {
   clusterName: string;
   environment: string;
   projectName: string;
+  adminRoleArn?: string;
+  devRoleArn?: string;
+  readOnlyRoleArn?: string;
+  cicdRoleArn?: string;
 }
 
 export class EksClusterStack extends cdk.Stack {
@@ -110,11 +114,47 @@ export class EksClusterStack extends cdk.Stack {
       serviceIpv4Cidr: '172.20.0.0/16',
     });
 
-    // Add cluster authentication - allows specified AWS users/roles to access the cluster
-    // Replace with actual IAM user/role ARNs as needed
-    // this.cluster.awsAuth.addUserMapping(iam.User.fromUserName(this, 'AdminUser', 'admin'), {
-    //   groups: ['system:masters'],
-    // });
+    // Add cluster authentication using IAM roles (better security practice)
+    // Admin role - full cluster access
+    if (props.adminRoleArn) {
+      this.cluster.awsAuth.addRoleMapping(iam.Role.fromRoleArn(this, 'AdminRole', props.adminRoleArn), {
+        groups: ['system:masters'],
+        username: 'eks-admin',
+      });
+    }
+
+    // Developer role - limited access to specific namespaces
+    if (props.devRoleArn) {
+      this.cluster.awsAuth.addRoleMapping(iam.Role.fromRoleArn(this, 'DevRole', props.devRoleArn), {
+        groups: ['developers'],
+        username: 'eks-developer',
+      });
+    }
+
+    // Read-only role - view access only
+    if (props.readOnlyRoleArn) {
+      this.cluster.awsAuth.addRoleMapping(iam.Role.fromRoleArn(this, 'ReadOnlyRole', props.readOnlyRoleArn), {
+        groups: ['view'],
+        username: 'eks-readonly',
+      });
+    }
+
+    // CI/CD role - for automated deployments
+    if (props.cicdRoleArn) {
+      this.cluster.awsAuth.addRoleMapping(iam.Role.fromRoleArn(this, 'CicdRole', props.cicdRoleArn), {
+        groups: ['system:masters', 'cicd'],
+        username: 'eks-cicd',
+      });
+    }
+
+    // Fallback: Add current AWS identity if no roles provided (for initial setup only)
+    if (!props.adminRoleArn && !props.devRoleArn && !props.readOnlyRoleArn) {
+      // This should only be used for initial deployment
+      // Replace with proper role-based access after IAM stack is deployed
+      this.cluster.awsAuth.addUserMapping(iam.User.fromUserName(this, 'FallbackAdminUser', 'shakti'), {
+        groups: ['system:masters'],
+      });
+    }
 
     // Add OIDC Identity Provider for IRSA (IAM Roles for Service Accounts)
     const oidcProvider = this.cluster.openIdConnectProvider;

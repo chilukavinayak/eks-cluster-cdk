@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: example-app-config
+  namespace: example-app
+  labels:
+    app: example-app
+    organization: "acme-corp"
+data:
+  # Application configuration
+  APP_NAME: "example-app"
+  APP_VERSION: "v1.0.0"
+  ENVIRONMENT: "production"
+  
+  # Logging configuration
+  LOG_LEVEL: "info"
+  LOG_FORMAT: "json"
+  LOG_OUTPUT: "stdout"
+  
+  # Metrics configuration
+  METRICS_ENABLED: "true"
+  METRICS_PORT: "9090"
+  METRICS_PATH: "/metrics"
+  
+  # Health check configuration
+  HEALTH_CHECK_PATH: "/health"
+  READINESS_CHECK_PATH: "/health/ready"
+  LIVENESS_CHECK_PATH: "/health/live"
+  STARTUP_CHECK_PATH: "/health/startup"
+  
+  # Performance tuning
+  MAX_CONNECTIONS: "100"
+  TIMEOUT_SECONDS: "30"
+  KEEP_ALIVE_TIMEOUT: "5"
+  
+  # Feature flags
+  FEATURE_NEW_API: "false"
+  FEATURE_EXPERIMENTAL: "false"
+  
+  # External service endpoints
+  DATABASE_POOL_SIZE: "10"
+  DATABASE_TIMEOUT: "5000"
+  REDIS_TIMEOUT: "3000"
+  
+  # Security settings
+  CORS_ENABLED: "true"
+  CORS_ORIGIN: "*"
+  RATE_LIMIT_ENABLED: "true"
+  RATE_LIMIT_MAX: "100"
+  RATE_LIMIT_WINDOW: "60"
