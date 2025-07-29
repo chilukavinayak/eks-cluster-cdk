@@ -1,0 +1,53 @@
+{
+  "clusterName": "sats-portals-eks-cluster",
+  "projectName": "sats-portals", 
+  "region": "us-east-1",
+  "createNewVpc": true,
+  "vpcId": "vpc-092aba922d044380f",
+  "vpcCidr": "10.0.0.0/16",
+  "nodeInstanceType": "m5.large",
+  "minNodes": 2,
+  "maxNodes": 10,
+  "desiredNodes": 3,
+  "environment": "dev",
+  "publicSubnets": [
+    {
+      "cidr": "10.0.1.0/24",
+      "availabilityZone": "us-east-1a",
+      "name": "sats-portals-public-1a"
+    },
+    {
+      "cidr": "10.0.2.0/24", 
+      "availabilityZone": "us-east-1b",
+      "name": "sats-portals-public-1b"
+    },
+    {
+      "cidr": "10.0.3.0/24",
+      "availabilityZone": "us-east-1c", 
+      "name": "sats-portals-public-1c"
+    }
+  ],
+  "privateSubnets": [
+    {
+      "cidr": "10.0.10.0/24",
+      "availabilityZone": "us-east-1a",
+      "name": "sats-portals-private-1a"
+    },
+    {
+      "cidr": "10.0.20.0/24", 
+      "availabilityZone": "us-east-1b",
+      "name": "sats-portals-private-1b"
+    },
+    {
+      "cidr": "10.0.30.0/24",
+      "availabilityZone": "us-east-1c", 
+      "name": "sats-portals-private-1c"
+    }
+  ],
+  "tags": {
+    "Project": "SatsPortals",
+    "Environment": "Development",
+    "Owner": "Onedesk-Team",
+    "CostCenter": "Engineering"
+  }
+}

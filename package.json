@@ -1,0 +1,49 @@
+{
+  "name": "eks-cluster-cdk",
+  "version": "1.0.0",
+  "description": "This blueprint provides a comprehensive guide for deploying a production-ready AWS EKS cluster that is:",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "test": "jest",
+    "cdk": "cdk",
+    "synth": "cdk synth",
+    "bootstrap": "cdk bootstrap",
+    "deploy": "cdk deploy",
+    "deploy-foundation": "cdk deploy sats-portals-prod-Foundation",
+    "deploy-cluster": "cdk deploy sats-portals-prod-EksCluster",
+    "deploy-compute": "cdk deploy sats-portals-prod-Compute",
+    "deploy-addons": "cdk deploy sats-portals-prod-Addons",
+    "deploy-app": "cdk deploy sats-portals-prod-Application",
+    "deploy-monitoring": "cdk deploy sats-portals-prod-Monitoring",
+    "deploy-all": "cdk deploy --all",
+    "destroy": "cdk destroy",
+    "diff": "cdk diff",
+    "ls": "cdk ls"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chilukavinayak/eks-cluster-cdk.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/chilukavinayak/eks-cluster-cdk/issues"
+  },
+  "homepage": "https://github.com/chilukavinayak/eks-cluster-cdk#readme",
+  "dependencies": {
+    "@aws-cdk/lambda-layer-kubectl-v30": "^2.0.4",
+    "aws-cdk-lib": "^2.207.0",
+    "constructs": "^10.4.2",
+    "source-map-support": "^0.5.21"
+  },
+  "devDependencies": {
+    "@types/node": "^24.1.0",
+    "aws-cdk": "^2.1022.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  }
+}
