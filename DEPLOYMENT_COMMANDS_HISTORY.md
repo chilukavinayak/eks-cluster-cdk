@@ -440,10 +440,51 @@ git push origin eks-cluster-setup
 - **Certificate Validation**: Pending DNS validation completion
 
 ### 📋 Required Actions:
-1. Update domain registrar nameservers to AWS nameservers
-2. Fix load balancer controller IAM permissions
-3. Wait for DNS propagation (24-48 hours)
-4. Create A records pointing to ALB once created
+1. ✅ Update domain registrar nameservers to AWS nameservers
+2. ✅ Fix load balancer controller IAM permissions
+3. ✅ Create A records pointing to ALB (done automatically by ingress)
+4. 🔄 Wait for SSL certificate validation (requires nameserver propagation)
+
+### 🔧 Load Balancer Permission Fix Commands:
+```bash
+# Create ELB tagging policy
+aws iam create-policy --policy-name ELBTaggingPolicy --policy-document file://elb-tagging-policy.json
+
+# Attach tagging policy to load balancer controller role
+aws iam attach-role-policy --role-name AmazonEKSLoadBalancerControllerRole --policy-arn arn:aws:iam::276824024738:policy/ELBTaggingPolicy
+
+# Attach comprehensive ELB permissions
+aws iam attach-role-policy --role-name AmazonEKSLoadBalancerControllerRole --policy-arn arn:aws:iam::aws:policy/ElasticLoadBalancingFullAccess
+
+# Restart load balancer controller
+source /Users/vinayak.chiluka/.aws/eks-profiles/eks-admin-credentials && kubectl rollout restart deployment -n kube-system --selector app.kubernetes.io/name=aws-load-balancer-controller
+
+# Trigger ingress reconciliation
+source /Users/vinayak.chiluka/.aws/eks-profiles/eks-admin-credentials && kubectl annotate ingress interviewdeck-ingress -n interviewdeck reload="$(date +%s)"
+```
+
+### 🎯 Current Status:
+- **✅ Application Working**: Frontend accessible via load balancer
+- **✅ ALB Created**: `k8s-intervie-intervie-a43f487485-624628371.us-east-1.elb.amazonaws.com`
+- **✅ Target Groups Healthy**: Both frontend pods responding
+- **✅ HTTP Listener**: Working on port 80
+- **🔄 HTTPS Listener**: Pending SSL certificate validation
+- **🔄 Domain Resolution**: May require DNS cache clear or more propagation time
+
+### 🚀 Test Commands:
+```bash
+# Test direct ALB access
+curl -H "Host: interviewdeck.io" http://k8s-intervie-intervie-a43f487485-624628371.us-east-1.elb.amazonaws.com/
+
+# Check certificate validation status
+aws acm describe-certificate --certificate-arn arn:aws:acm:us-east-1:276824024738:certificate/6f8db481-1c6b-446c-9501-bb739963b44b --region us-east-1 --query 'Certificate.Status'
+
+# Check listeners
+aws elbv2 describe-listeners --load-balancer-arn $(aws elbv2 describe-load-balancers --query 'LoadBalancers[?contains(LoadBalancerName, `k8s-intervie`)].LoadBalancerArn' --output text) --region us-east-1
+
+# Check target health
+aws elbv2 describe-target-health --target-group-arn arn:aws:elasticloadbalancing:us-east-1:276824024738:targetgroup/k8s-intervie-intervie-0d4b3b190a/eb3677e8908b3d90 --region us-east-1
+```
 
 ---
 

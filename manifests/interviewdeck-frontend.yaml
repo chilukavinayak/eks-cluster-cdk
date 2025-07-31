@@ -64,9 +64,10 @@ metadata:
     kubernetes.io/ingress.class: alb
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
-    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:276824024738:certificate/6f8db481-1c6b-446c-9501-bb739963b44b"
-    alb.ingress.kubernetes.io/ssl-redirect: '443'
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    # Temporarily disabled SSL until certificate validation completes
+    # alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:276824024738:certificate/6f8db481-1c6b-446c-9501-bb739963b44b"
+    # alb.ingress.kubernetes.io/ssl-redirect: '443'
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
 spec:
   rules:
   - host: interviewdeck.io
@@ -79,10 +80,11 @@ spec:
             name: interviewdeck-frontend
             port:
               number: 80
-      - path: /api
-        pathType: Prefix
-        backend:
-          service:
-            name: interviewdeck-backend
-            port:
-              number: 8080
+# Temporarily commented out due to backend issues
+      # - path: /api
+      #   pathType: Prefix
+      #   backend:
+      #     service:
+      #       name: interviewdeck-backend
+      #       port:
+      #         number: 8080
