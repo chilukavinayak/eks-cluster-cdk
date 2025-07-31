@@ -283,5 +283,170 @@ aws ecr describe-repositories --region us-east-1
 
 ---
 
-*Command history generated on July 31, 2025*
+## 11. Route 53 Domain Setup Commands
+
+### Create Route 53 Hosted Zone
+```bash
+aws route53 create-hosted-zone --name interviewdeck.io --caller-reference "interviewdeck-$(date +%s)" --hosted-zone-config Comment="Hosted zone for InterviewDeck.io application on EKS"
+```
+
+### Get Hosted Zone Details
+```bash
+aws route53 get-hosted-zone --id Z0230466UX8KG6M1GBCM
+```
+
+### Download Load Balancer Controller Policy
+```bash
+curl -O https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.7.2/docs/install/iam_policy.json
+```
+
+### Create IAM Policy for Load Balancer Controller
+```bash
+aws iam create-policy --policy-name AWSLoadBalancerControllerIAMPolicy --policy-document file://iam_policy.json
+```
+
+### Create IAM Role Trust Policy
+```bash
+# Created trust-policy.json file with OIDC provider configuration
+```
+
+### Create IAM Role for Load Balancer Controller
+```bash
+aws iam create-role --role-name AmazonEKSLoadBalancerControllerRole --assume-role-policy-document file://trust-policy.json
+```
+
+### Attach Policy to Role
+```bash
+aws iam attach-role-policy --role-name AmazonEKSLoadBalancerControllerRole --policy-arn arn:aws:iam::276824024738:policy/AWSLoadBalancerControllerIAMPolicy
+```
+
+### Create Service Account for Load Balancer Controller
+```bash
+source /Users/vinayak.chiluka/.aws/eks-profiles/eks-admin-credentials && kubectl apply -f manifests/aws-load-balancer-controller-sa.yaml
+```
+
+### Setup Helm Repository
+```bash
+helm repo add eks https://aws.github.io/eks-charts
+helm repo update
+```
+
+### Attempt to Install Load Balancer Controller (Already Existed)
+```bash
+source /Users/vinayak.chiluka/.aws/eks-profiles/eks-admin-credentials && helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=sats-portals-eks-cluster --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller
+```
+
+### Check Existing Helm Installations
+```bash
+source /Users/vinayak.chiluka/.aws/eks-profiles/eks-admin-credentials && helm list -n kube-system
+```
+
+### Request SSL Certificate
+```bash
+aws acm request-certificate --domain-name interviewdeck.io --subject-alternative-names "*.interviewdeck.io" --validation-method DNS --region us-east-1
+```
+
+### Get Certificate Details for DNS Validation
+```bash
+aws acm describe-certificate --certificate-arn arn:aws:acm:us-east-1:276824024738:certificate/6f8db481-1c6b-446c-9501-bb739963b44b --region us-east-1
+```
+
+### Create DNS Validation Record in Route 53
+```bash
+aws route53 change-resource-record-sets --hosted-zone-id Z0230466UX8KG6M1GBCM --change-batch '{
+  "Changes": [
+    {
+      "Action": "CREATE",
+      "ResourceRecordSet": {
+        "Name": "_c6b504c9424e76856c489f1410533be7.interviewdeck.io.",
+        "Type": "CNAME",
+        "TTL": 300,
+        "ResourceRecords": [
+          {
+            "Value": "_fa84a6e082fbf68c443265ac9925d799.xlfgrmvvlj.acm-validations.aws."
+          }
+        ]
+      }
+    }
+  ]
+}'
+```
+
+### Update Ingress with Domain and SSL Certificate
+```bash
+# Modified manifests/interviewdeck-frontend.yaml with:
+# - Real domain: interviewdeck.io
+# - SSL certificate ARN
+# - HTTPS redirect configuration
+```
+
+### Apply Updated Ingress
+```bash
+source /Users/vinayak.chiluka/.aws/eks-profiles/eks-admin-credentials && kubectl apply -f manifests/interviewdeck-frontend.yaml
+```
+
+### Check Ingress Status
+```bash
+source /Users/vinayak.chiluka/.aws/eks-profiles/eks-admin-credentials && kubectl get ingress -n interviewdeck
+source /Users/vinayak.chiluka/.aws/eks-profiles/eks-admin-credentials && kubectl describe ingress interviewdeck-ingress -n interviewdeck
+```
+
+### Commit and Push Route 53 Setup
+```bash
+git add ROUTE53_DOMAIN_SETUP.md manifests/aws-load-balancer-controller-sa.yaml trust-policy.json iam_policy.json manifests/interviewdeck-frontend.yaml
+git commit -m "Setup Route 53 domain and SSL for interviewdeck.io
+
+✅ Route 53 Setup:
+- Created hosted zone Z0230466UX8KG6M1GBCM for interviewdeck.io
+- AWS nameservers: ns-1671.awsdns-16.co.uk, ns-492.awsdns-61.com, ns-845.awsdns-41.net, ns-1397.awsdns-46.org
+- Comprehensive domain setup documentation
+
+🔐 SSL Certificate:
+- Requested ACM certificate for interviewdeck.io and *.interviewdeck.io
+- Certificate ARN: arn:aws:acm:us-east-1:276824024738:certificate/6f8db481-1c6b-446c-9501-bb739963b44b
+- Created DNS validation CNAME record in Route 53
+
+🚀 Load Balancer Configuration:
+- IAM role and policy for AWS Load Balancer Controller
+- Updated ingress with real domain and SSL certificate
+- Configured HTTPS redirect and proper listeners
+
+📋 Next Steps:
+- Update domain registrar nameservers to AWS
+- Wait for DNS propagation and SSL validation
+- Create DNS A records pointing to ALB once available"
+
+git push origin eks-cluster-setup
+```
+
+---
+
+## 12. Route 53 Configuration Results
+
+### ✅ Successfully Created:
+- **Hosted Zone**: `Z0230466UX8KG6M1GBCM` for `interviewdeck.io`
+- **AWS Nameservers**: 
+  - `ns-1671.awsdns-16.co.uk`
+  - `ns-492.awsdns-61.com`
+  - `ns-845.awsdns-41.net`
+  - `ns-1397.awsdns-46.org`
+- **SSL Certificate**: `arn:aws:acm:us-east-1:276824024738:certificate/6f8db481-1c6b-446c-9501-bb739963b44b`
+- **DNS Validation**: CNAME record created for certificate validation
+- **Ingress Update**: Now configured for `interviewdeck.io` with SSL
+
+### ⚠️ Known Issues:
+- **Load Balancer Permissions**: Controller lacks `elasticloadbalancing:AddTags` permission
+- **DNS Propagation**: Requires nameserver update at domain registrar
+- **Certificate Validation**: Pending DNS validation completion
+
+### 📋 Required Actions:
+1. Update domain registrar nameservers to AWS nameservers
+2. Fix load balancer controller IAM permissions
+3. Wait for DNS propagation (24-48 hours)
+4. Create A records pointing to ALB once created
+
+---
+
+*Command history updated on July 31, 2025*
 *Project: InterviewDeck.io EKS Deployment*
+*Phase: Route 53 Domain Setup Complete*
