@@ -1,0 +1,31 @@
+image:
+  repository: postgres
+  tag: "14.9"
+  pullPolicy: IfNotPresent
+
+auth:
+  postgresPassword: "interviewdeck123"
+  username: "interviewdeck"
+  password: "interviewdeck123"
+  database: "interviewdeck"
+
+service:
+  type: ClusterIP
+  port: 5432
+
+persistence:
+  enabled: true
+  storageClass: "gp2"
+  size: 20Gi
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

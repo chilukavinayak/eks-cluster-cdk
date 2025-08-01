@@ -488,6 +488,51 @@ aws elbv2 describe-target-health --target-group-arn arn:aws:elasticloadbalancing
 
 ---
 
+## 13. PostgreSQL Database Deployment
+
+### Deploy PostgreSQL for Backend Database
+```bash
+# Create PostgreSQL deployment with small resource allocation
+source /Users/vinayak.chiluka/.aws/eks-profiles/eks-admin-credentials && kubectl apply -f manifests/postgres-deployment.yaml
+```
+
+### Fix PVC Permissions Issue
+```bash
+# Delete failed deployment due to EKS node permissions for EBS volume creation
+source /Users/vinayak.chiluka/.aws/eks-profiles/eks-admin-credentials && kubectl delete deployment postgres
+source /Users/vinayak.chiluka/.aws/eks-profiles/eks-admin-credentials && kubectl delete pvc postgres-pvc
+
+# Redeploy with emptyDir storage (non-persistent for development)
+source /Users/vinayak.chiluka/.aws/eks-profiles/eks-admin-credentials && kubectl apply -f manifests/postgres-deployment.yaml
+```
+
+### Verify PostgreSQL Deployment
+```bash
+# Check PostgreSQL pod status
+source /Users/vinayak.chiluka/.aws/eks-profiles/eks-admin-credentials && kubectl get pods -l app=postgres
+
+# Verify PostgreSQL service
+source /Users/vinayak.chiluka/.aws/eks-profiles/eks-admin-credentials && kubectl get svc postgres-service
+```
+
+### PostgreSQL Configuration Details:
+- **Image**: `postgres:15-alpine`
+- **Database**: `interviewdeck`
+- **Username**: `interviewdeck_user`
+- **Password**: Stored in `postgres-secret`
+- **Service**: `postgres-service:5432`
+- **Storage**: `emptyDir` (temporary, non-persistent)
+- **Resources**: 256Mi-512Mi memory, 250m-500m CPU
+
+### Created Files:
+1. `/Users/vinayak.chiluka/workspace/repo/eks-cluster-cdk/manifests/postgres-deployment.yaml` - PostgreSQL deployment manifest
+2. `/Users/vinayak.chiluka/workspace/repo/eks-cluster-cdk/scripts/deploy-postgres.sh` - PostgreSQL deployment script
+
+### Updated Files:
+1. `/Users/vinayak.chiluka/workspace/repo/eks-cluster-cdk/helm-charts/interviewdeck/values-prod.yaml` - Added database password secret
+
+---
+
 *Command history updated on July 31, 2025*
 *Project: InterviewDeck.io EKS Deployment*
-*Phase: Route 53 Domain Setup Complete*
+*Phase: PostgreSQL Database Deployed*

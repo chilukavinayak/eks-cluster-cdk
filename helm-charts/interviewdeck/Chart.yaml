@@ -1,0 +1,28 @@
+apiVersion: v2
+name: interviewdeck
+description: A Helm chart for InterviewDeck.io - Technical Interview Preparation Platform
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+
+home: https://interviewdeck.io
+sources:
+  - https://github.com/chilukavinayak/eks-cluster-cdk
+  - https://github.com/your-org/interviewdeck-io-backend
+  - https://github.com/your-org/interviewdeck-io-frontend
+
+maintainers:
+  - name: Vinayak Chiluka
+    email: vinayak.chiluka@example.com
+
+keywords:
+  - interviewdeck
+  - technical-interviews
+  - coding-practice
+  - spring-boot
+  - react
+  - typescript
+
+annotations:
+  category: Education
+  licenses: Apache-2.0

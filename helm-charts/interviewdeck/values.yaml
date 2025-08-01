@@ -1,0 +1,181 @@
+# Default values for interviewdeck
+# This is a YAML-formatted file.
+
+# Global configuration
+global:
+  imageRegistry: "276824024738.dkr.ecr.us-east-1.amazonaws.com"
+  storageClass: ""
+
+# Frontend configuration
+frontend:
+  enabled: true
+  name: frontend
+  image:
+    repository: "interviewdeck-frontend"
+    tag: "latest"
+    pullPolicy: Always
+  
+  replicaCount: 2
+  
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 80
+  
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi" 
+      cpu: "200m"
+  
+  livenessProbe:
+    httpGet:
+      path: /
+      port: 80
+    initialDelaySeconds: 30
+    periodSeconds: 30
+  
+  readinessProbe:
+    httpGet:
+      path: /
+      port: 80
+    initialDelaySeconds: 10
+    periodSeconds: 5
+
+# Backend configuration
+backend:
+  enabled: false  # Temporarily disabled due to startup issues
+  name: backend
+  image:
+    repository: "interviewdeck-backend"
+    tag: "latest"
+    pullPolicy: Always
+  
+  replicaCount: 2
+  
+  service:
+    type: ClusterIP
+    ports:
+      auth: 8080
+      content: 8081
+      payment: 8082
+  
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+  
+  # Health checks
+  livenessProbe:
+    httpGet:
+      path: /actuator/health
+      port: 8080
+    initialDelaySeconds: 120
+    periodSeconds: 30
+    failureThreshold: 5
+  
+  readinessProbe:
+    httpGet:
+      path: /actuator/health
+      port: 8080
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    failureThreshold: 3
+  
+  # Environment configuration
+  env:
+    SPRING_PROFILES_ACTIVE: "prod"
+    SPRING_DATASOURCE_URL: "jdbc:h2:mem:testdb"
+    SPRING_DATASOURCE_USERNAME: "sa"
+    SPRING_JPA_HIBERNATE_DDL_AUTO: "create-drop"
+    SPRING_H2_CONSOLE_ENABLED: "false"
+    JWT_SECRET: "interviewdeck-secret-key-that-is-at-least-256-bits-long-for-production-use"
+  
+  # Secrets (base64 encoded)
+  secrets:
+    GOOGLE_CLIENT_ID: ""
+    GOOGLE_CLIENT_SECRET: ""
+    STRIPE_SECRET_KEY: ""
+    STRIPE_WEBHOOK_SECRET: ""
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: ""
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+    # SSL configuration (uncomment when certificate is ready)
+    # alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:276824024738:certificate/6f8db481-1c6b-446c-9501-bb739963b44b"
+    # alb.ingress.kubernetes.io/ssl-redirect: '443'
+    # alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+  
+  hosts:
+    - host: interviewdeck.io
+      paths:
+        - path: /
+          pathType: Prefix
+          service: frontend
+        # Uncomment when backend is stable
+        # - path: /api
+        #   pathType: Prefix
+        #   service: backend
+  
+  tls: []
+
+# SSL Certificate
+ssl:
+  enabled: true
+  certificateArn: "arn:aws:acm:us-east-1:276824024738:certificate/6f8db481-1c6b-446c-9501-bb739963b44b"
+
+# AWS Configuration
+aws:
+  region: us-east-1
+  accountId: "276824024738"
+
+# Service Account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Pod Security Context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 101  # nginx user for frontend, will be overridden for backend
+  fsGroup: 101
+
+# Security Context
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: false
+  runAsUser: 101  # nginx user
+  runAsGroup: 101
+
+# Autoscaling
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+
+# Node Selection
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Monitoring
+monitoring:
+  enabled: false
+  serviceMonitor:
+    enabled: false

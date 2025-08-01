@@ -1,0 +1,133 @@
+global:
+  image:
+    repository: your-registry/interviewdeck-backend
+    pullPolicy: Always
+    tag: "latest"
+
+authService:
+  enabled: true
+  replicaCount: 2
+  port: 8080
+  service:
+    type: ClusterIP
+    port: 8080
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "prod"
+    - name: SERVER_PORT
+      value: "8080"
+
+contentService:
+  enabled: true
+  replicaCount: 2
+  port: 8081
+  service:
+    type: ClusterIP
+    port: 8081
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "prod"
+    - name: SERVER_PORT
+      value: "8081"
+
+paymentService:
+  enabled: true
+  replicaCount: 2
+  port: 8082
+  service:
+    type: ClusterIP
+    port: 8082
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "prod"
+    - name: SERVER_PORT
+      value: "8082"
+
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "interviewdeck123"
+    username: "interviewdeck"
+    password: "interviewdeck123"
+    database: "interviewdeck"
+  service:
+    ports:
+      postgresql: 5432
+
+database:
+  host: "postgresql"
+  port: 5432
+  name: "interviewdeck"
+  username: "interviewdeck"
+  password: "interviewdeck123"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+podSecurityContext: {}
+securityContext: {}
+
+ingress:
+  enabled: true
+  className: "alb"
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:region:account:certificate/cert-id
+    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS-1-2-2017-01
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+  hosts:
+    - host: api.interviewdeck.yourdomain.com
+      paths:
+        - path: /auth
+          pathType: Prefix
+          service: auth-service
+        - path: /api/content
+          pathType: Prefix
+          service: content-service
+        - path: /api/payment
+          pathType: Prefix
+          service: payment-service
+  tls: []
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

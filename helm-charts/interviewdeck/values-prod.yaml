@@ -1,0 +1,104 @@
+# Production environment values for interviewdeck
+# This is a YAML-formatted file.
+
+# Frontend configuration for production
+frontend:
+  replicaCount: 3
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+
+# Backend configuration for production
+backend:
+  enabled: true
+  replicaCount: 1
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+  
+  # Production environment variables
+  env:
+    SPRING_PROFILES_ACTIVE: "prod"
+    SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres-service.default.svc.cluster.local:5432/interviewdeck"
+    SPRING_DATASOURCE_USERNAME: "interviewdeck_user"
+    SPRING_JPA_HIBERNATE_DDL_AUTO: "create-drop"
+    SPRING_H2_CONSOLE_ENABLED: "false"
+    JWT_SECRET: "production-secret-key-that-is-at-least-256-bits-long-and-secure"
+  
+  # Increase health check timeouts for PostgreSQL startup
+  livenessProbe:
+    httpGet:
+      path: /actuator/health
+      port: 8080
+    initialDelaySeconds: 180
+    periodSeconds: 30
+    failureThreshold: 10
+  
+  readinessProbe:
+    httpGet:
+      path: /actuator/health
+      port: 8080
+    initialDelaySeconds: 120
+    periodSeconds: 15
+    failureThreshold: 10
+  
+  # Production secrets (set via CI/CD or external secret management)
+  secrets:
+    SPRING_DATASOURCE_PASSWORD: "aW50ZXJ2aWV3ZGVja19wYXNzd29yZA=="  # Base64 encoded
+    GOOGLE_CLIENT_ID: ""  # Base64 encoded
+    GOOGLE_CLIENT_SECRET: ""  # Base64 encoded
+    STRIPE_SECRET_KEY: ""  # Base64 encoded
+    STRIPE_WEBHOOK_SECRET: ""  # Base64 encoded
+
+# Ingress configuration for production
+ingress:
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+  
+  hosts:
+    - host: interviewdeck.io
+      paths:
+        - path: /
+          pathType: Prefix
+          service: frontend
+        - path: /api
+          pathType: Prefix
+          service: backend
+
+# Enable SSL for production
+ssl:
+  enabled: true
+  certificateArn: "arn:aws:acm:us-east-1:276824024738:certificate/6f8db481-1c6b-446c-9501-bb739963b44b"
+
+# Enable autoscaling for production
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+# Pod Security Context for production
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 2000
+
+# Security Context for production
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: false

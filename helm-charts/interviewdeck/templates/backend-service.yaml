@@ -1,0 +1,28 @@
+{{- if .Values.backend.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "interviewdeck.fullname" . }}-backend
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "interviewdeck.labels" . | nindent 4 }}
+    component: backend
+spec:
+  type: {{ .Values.backend.service.type }}
+  ports:
+    - name: auth-service
+      port: {{ .Values.backend.service.ports.auth }}
+      targetPort: {{ .Values.backend.service.ports.auth }}
+      protocol: TCP
+    - name: content-service
+      port: {{ .Values.backend.service.ports.content }}
+      targetPort: {{ .Values.backend.service.ports.content }}
+      protocol: TCP
+    - name: payment-service
+      port: {{ .Values.backend.service.ports.payment }}
+      targetPort: {{ .Values.backend.service.ports.payment }}
+      protocol: TCP
+  selector:
+    {{- include "interviewdeck.selectorLabels" . | nindent 4 }}
+    component: backend
+{{- end }}

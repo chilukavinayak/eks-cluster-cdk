@@ -1,0 +1,150 @@
+# SECURE VALUES.YAML - Use this for production deployment
+
+global:
+  image:
+    repository: 276824024738.dkr.ecr.us-east-1.amazonaws.com/interviewdeck-backend
+    pullPolicy: Always
+    tag: "latest"
+
+# Security-hardened pod configuration
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 3000
+  fsGroup: 2000
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false  # Spring Boot needs write access
+  allowPrivilegeEscalation: false
+  runAsNonRoot: true
+  runAsUser: 1000
+
+authService:
+  enabled: true
+  replicaCount: 2
+  port: 8080
+  service:
+    type: ClusterIP
+    port: 8080
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "prod"
+    - name: SERVER_PORT
+      value: "8080"
+
+contentService:
+  enabled: true
+  replicaCount: 2
+  port: 8081
+  service:
+    type: ClusterIP
+    port: 8081
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "prod"
+    - name: SERVER_PORT
+      value: "8081"
+
+paymentService:
+  enabled: true
+  replicaCount: 2
+  port: 8082
+  service:
+    type: ClusterIP
+    port: 8082
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "prod"
+    - name: SERVER_PORT
+      value: "8082"
+
+# Use Kubernetes Secrets instead of plain text passwords
+database:
+  host: "postgresql"
+  port: 5432
+  secretName: "interviewdeck-db-secret"  # Reference to Kubernetes Secret
+
+serviceAccount:
+  create: true
+  automount: false  # Disable automatic token mounting for security
+  annotations:
+    # Add IAM role annotations if using IRSA
+    # eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT:role/interviewdeck-service-role
+
+# PRIVATE ingress - only accessible within VPC
+ingress:
+  enabled: true
+  className: "alb"
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internal  # 🔒 INTERNAL ONLY
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:region:account:certificate/cert-id
+    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS-1-2-2017-01
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    # Rate limiting
+    alb.ingress.kubernetes.io/load-balancer-attributes: routing.http2.enabled=true,idle_timeout.timeout_seconds=60
+    # WAF integration
+    alb.ingress.kubernetes.io/wafv2-acl-arn: arn:aws:wafv2:region:account:regional/webacl/name/id
+  hosts:
+    - host: api-internal.interviewdeck.yourdomain.com
+      paths:
+        - path: /auth
+          pathType: Prefix
+          service: auth-service
+        - path: /api/content
+          pathType: Prefix
+          service: content-service
+        - path: /api/payment
+          pathType: Prefix
+          service: payment-service
+  tls:
+    - secretName: interviewdeck-backend-tls
+      hosts:
+        - api-internal.interviewdeck.yourdomain.com
+
+# Network policies
+networkPolicies:
+  enabled: true
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Node affinity for security
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: node-type
+          operator: In
+          values:
+          - "private"  # Only schedule on private nodes

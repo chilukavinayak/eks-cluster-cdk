@@ -1,0 +1,102 @@
+# Security Hardening Configuration for Production
+
+# 1. Create Kubernetes Secrets for Sensitive Data
+apiVersion: v1
+kind: Secret
+metadata:
+  name: interviewdeck-db-secret
+  namespace: interviewdeck
+type: Opaque
+stringData:
+  postgres-password: "your-secure-password-here"
+  username: "interviewdeck"
+  database: "interviewdeck"
+
+---
+# 2. Network Policy - Restrict Database Access
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgresql-network-policy
+  namespace: interviewdeck
+spec:
+  podSelector:
+    matchLabels:
+      app: postgresql
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: interviewdeck-backend
+    ports:
+    - protocol: TCP
+      port: 5432
+
+---
+# 3. Network Policy - Restrict Backend Services
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-network-policy
+  namespace: interviewdeck
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: interviewdeck-backend
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: interviewdeck-frontend
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system  # For ALB ingress controller
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: postgresql
+    ports:
+    - protocol: TCP
+      port: 5432
+  - to: []  # Allow external calls for APIs (Stripe, etc.)
+    ports:
+    - protocol: TCP
+      port: 443
+
+---
+# 4. Pod Security Policy for Backend
+apiVersion: v1
+kind: SecurityContext
+metadata:
+  name: restricted-security-context
+spec:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 3000
+  fsGroup: 2000
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+
+---
+# 5. Service Monitor for Security (if using Prometheus)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: interviewdeck-security-monitor
+  namespace: interviewdeck
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: interviewdeck-backend
+  endpoints:
+  - port: http
+    path: /actuator/prometheus

@@ -1,0 +1,148 @@
+# SECURE FRONTEND VALUES - Use this for production deployment
+
+replicaCount: 2
+
+image:
+  repository: 276824024738.dkr.ecr.us-east-1.amazonaws.com/interviewdeck-frontend
+  pullPolicy: Always
+  tag: "latest"
+
+# Security-hardened pod configuration
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 101  # nginx user
+  runAsGroup: 101
+  fsGroup: 101
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  runAsNonRoot: true
+  runAsUser: 101
+
+serviceAccount:
+  create: true
+  automount: false  # Disable automatic token mounting
+  annotations: {}
+
+service:
+  type: ClusterIP
+  port: 80
+
+# PUBLIC ingress with security controls
+ingress:
+  enabled: true
+  className: "alb"
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:region:account:certificate/cert-id
+    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS-1-2-2017-01
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    
+    # Security headers
+    alb.ingress.kubernetes.io/load-balancer-attributes: |
+      routing.http.preserve_host_header.enabled=true,
+      routing.http2.enabled=true,
+      idle_timeout.timeout_seconds=60
+    
+    # Rate limiting (requests per IP)
+    alb.ingress.kubernetes.io/actions.rate-limit: |
+      {
+        "type": "fixed-response",
+        "fixedResponseConfig": {
+          "statusCode": "429",
+          "contentType": "text/plain",
+          "messageBody": "Rate limit exceeded"
+        }
+      }
+    
+    # WAF integration for DDoS protection
+    alb.ingress.kubernetes.io/wafv2-acl-arn: arn:aws:wafv2:region:account:regional/webacl/name/id
+    
+    # Redirect HTTP to HTTPS
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    
+  hosts:
+    - host: interviewdeck.yourdomain.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: interviewdeck-frontend-tls
+      hosts:
+        - interviewdeck.yourdomain.com
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+# Health checks
+livenessProbe:
+  httpGet:
+    path: /
+    port: 80
+    scheme: HTTP
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /
+    port: 80
+    scheme: HTTP
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# Volume mounts for read-only filesystem
+volumeMounts:
+  - name: tmp
+    mountPath: /tmp
+  - name: var-cache-nginx
+    mountPath: /var/cache/nginx
+  - name: var-run
+    mountPath: /var/run
+
+volumes:
+  - name: tmp
+    emptyDir: {}
+  - name: var-cache-nginx
+    emptyDir: {}
+  - name: var-run
+    emptyDir: {}
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Node affinity for security
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: node-type
+          operator: In
+          values:
+          - "public"  # Frontend can run on public nodes
+
+env:
+  - name: NODE_ENV
+    value: "production"
+  - name: API_URL
+    value: "https://api-internal.interviewdeck.yourdomain.com"  # Point to internal backend
